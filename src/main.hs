@@ -8,7 +8,7 @@ import Sound.ALUT
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-import Control.Monad (void, forM_, zipWithM_, when)
+import Control.Monad (void, forM_, zipWithM_, when, unless)
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
 
@@ -272,15 +272,15 @@ inputLoop' b = liftIO pollEvent >>= \evt -> case evt of
     updateSpeed
     inputLoop
   MouseButtonDown _ _ ButtonWheelDown -> if b then inputLoop' b else do
-    modify $ \prog -> prog { vPosition = vPosition prog + 0.25 }
+    modify $ \prog -> prog { vPosition = fromInteger (floor ((vPosition prog * 4) + 1)) / 4 }
     draw
     inputLoop
   MouseButtonDown _ _ ButtonWheelUp -> if b then inputLoop' b else do
-    modify $ \prog -> prog { vPosition = max 0 $ vPosition prog - 0.25 }
+    modify $ \prog -> prog { vPosition = max 0 $ fromInteger (ceiling ((vPosition prog * 4) - 1)) / 4 }
     draw
     inputLoop
-  KeyDown (Keysym SDLK_1 _ _) -> toggleDrum Kick >> draw >> inputLoop
-  KeyDown (Keysym SDLK_2 _ _) -> toggleDrum Snare >> draw >> inputLoop
+  KeyDown (Keysym SDLK_1 _ _) -> unless b (toggleDrum Kick >> draw) >> inputLoop
+  KeyDown (Keysym SDLK_2 _ _) -> unless b (toggleDrum Snare >> draw) >> inputLoop
   KeyDown (Keysym SDLK_SPACE _ _) -> if b
     then do
       (srcDrumL, srcDrumR) <- gets vDrumAudio
