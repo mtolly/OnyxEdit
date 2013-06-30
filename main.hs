@@ -19,24 +19,24 @@ import Paths_rhythmal
 
 data Note
   = Kick
-  | FootHihat
   | Snare
-  | CloseHihat
-  | OpenHihat
-  | RideB
-  | RideG
-  | CrashY
-  | CrashB
-  | CrashG
+  | HihatF -- ^ Foot
+  | HihatC -- ^ Closed
+  | HihatO -- ^ Open
+  | RideB -- ^ Blue
+  | RideG -- ^ Green
+  | CrashY -- ^ Yellow
+  | CrashB -- ^ Blue
+  | CrashG -- ^ Green
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 noteSprite :: Note -> (Int, Int)
 noteSprite = \case
   Kick -> (0, 0)
-  FootHihat -> (120, 60)
+  HihatF -> (120, 60)
   Snare -> (0, 30)
-  CloseHihat -> (60, 60)
-  OpenHihat -> (90, 60)
+  HihatC -> (60, 60)
+  HihatO -> (90, 60)
   RideB -> (60, 90)
   RideG -> (60, 120)
   CrashY -> (30, 60)
@@ -87,10 +87,10 @@ timeToX pos = do
 noteToY :: Note -> Int
 noteToY n = 290 - 25 * case n of
   Kick -> 0
-  FootHihat -> 0
+  HihatF -> 0
   Snare -> 1
-  CloseHihat -> 2
-  OpenHihat -> 2
+  HihatC -> 2
+  HihatO -> 2
   RideB -> 3
   RideG -> 4
   CrashY -> 2
@@ -126,13 +126,13 @@ kitchen = Map.fromList
   , (1, Set.fromList [RideB])
   , (1.5, Set.fromList [Snare])
   , (2, Set.fromList [RideB])
-  , (2.5, Set.fromList [OpenHihat])
-  , (3, Set.fromList [Kick, FootHihat, RideB])
-  , (3.5, Set.fromList [CloseHihat])
+  , (2.5, Set.fromList [HihatO])
+  , (3, Set.fromList [Kick, HihatF, RideB])
+  , (3.5, Set.fromList [HihatC])
   , (4, Set.fromList [RideB])
   , (4.5, Set.fromList [Snare])
   , (5, Set.fromList [RideB])
-  , (5.5, Set.fromList [OpenHihat])
+  , (5.5, Set.fromList [HihatO])
   ]
 
 drawBG :: Prog ()
