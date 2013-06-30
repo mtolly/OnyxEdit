@@ -13,8 +13,6 @@ import Control.Monad (void, forM_, zipWithM_)
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
 
-import Data.Word
-
 import Paths_rhythmal
 
 data Note
@@ -52,7 +50,7 @@ data Program = Program
   , vChart :: Map.Map Seconds (Set.Set Note)
   , vPosition :: Seconds
   , vResolution :: Int
-  , vPlayFrom :: Maybe (Word32, Seconds)
+  , vPlaying :: Bool
   , vDrumAudio :: (Source, Source)
   , vSongAudio :: (Source, Source)
   , vAudioStart :: Float
@@ -74,14 +72,14 @@ applyCenter x y src dst = do
   apply (x - div w 2) (y - div h 2) src dst
 
 playUpdate :: Prog Bool
-playUpdate = gets vPlayFrom >>= \case
-  Nothing -> return False
-  Just _  -> do
+playUpdate = gets vPlaying >>= \b -> if b
+  then do
     (dl, _) <- gets vDrumAudio
     t <- liftIO $ Sound.ALUT.get $ secOffset dl
     a <- gets vAudioStart
     modify $ \prog -> prog { vPosition = realToFrac $ t - a }
     return True
+  else return False
 
 timeToX :: Seconds -> Prog Int
 timeToX pos = do
@@ -177,7 +175,7 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vChart = kitchen
         , vPosition = 0
         , vResolution = 200
-        , vPlayFrom = Nothing
+        , vPlaying = False
         , vDrumAudio = (srcDrumL, srcDrumR)
         , vSongAudio = (srcSongL, srcSongR)
         , vAudioStart = 39.726
@@ -233,25 +231,23 @@ inputLoop' b = liftIO pollEvent >>= \case
             (Just 0, 0) -> Nothing
             (Just i, _) -> Just $ Set.deleteAt i notes
             (Nothing, _) -> Just $ Set.insert Kick notes
-  KeyDown (Keysym SDLK_SPACE _ _) -> do
-    gets vPlayFrom >>= \case
-      Nothing -> do
-        tks <- liftIO getTicks
-        now <- gets vPosition
-        (srcDrumL, srcDrumR) <- gets vDrumAudio
-        (srcSongL, srcSongR) <- gets vSongAudio
-        strt <- gets vAudioStart
-        modify $ \prog -> prog { vPlayFrom = Just (tks, now) }
-        forM_ [srcDrumL, srcDrumR, srcSongL, srcSongR] $ \src ->
-          liftIO $ secOffset src $= strt + realToFrac now
-        liftIO $ play [srcDrumL, srcDrumR, srcSongL, srcSongR]
-        inputLoop
-      Just _ -> do
-        (srcDrumL, srcDrumR) <- gets vDrumAudio
-        (srcSongL, srcSongR) <- gets vSongAudio
-        modify $ \prog -> prog { vPlayFrom = Nothing }
-        liftIO $ pause [srcDrumL, srcDrumR, srcSongL, srcSongR]
-        inputLoop
+  KeyDown (Keysym SDLK_SPACE _ _) -> if b
+    then do
+      (srcDrumL, srcDrumR) <- gets vDrumAudio
+      (srcSongL, srcSongR) <- gets vSongAudio
+      modify $ \prog -> prog { vPlaying = False }
+      liftIO $ pause [srcDrumL, srcDrumR, srcSongL, srcSongR]
+      inputLoop
+    else do
+      now <- gets vPosition
+      (srcDrumL, srcDrumR) <- gets vDrumAudio
+      (srcSongL, srcSongR) <- gets vSongAudio
+      strt <- gets vAudioStart
+      modify $ \prog -> prog { vPlaying = True }
+      forM_ [srcDrumL, srcDrumR, srcSongL, srcSongR] $ \src ->
+        liftIO $ secOffset src $= strt + realToFrac now
+      liftIO $ play [srcDrumL, srcDrumR, srcSongL, srcSongR]
+      inputLoop
   KeyDown (Keysym SDLK_d _ _) -> do
     (srcDrumL, srcDrumR) <- gets vDrumAudio
     g <- liftIO $ Sound.ALUT.get $ sourceGain srcDrumL
