@@ -43,14 +43,16 @@ noteSprite = \case
   CrashB -> (30, 90)
   CrashG -> (30, 120)
 
+type Seconds = Rational
+
 data Program = Program
   { vScreen :: Surface
   , vNoteSprites :: Surface
   , vBackground :: Surface
-  , vChart :: Map.Map Rational (Set.Set Note)
-  , vPosition :: Rational
+  , vChart :: Map.Map Seconds (Set.Set Note)
+  , vPosition :: Seconds
   , vResolution :: Int
-  , vPlayFrom :: Maybe (Word32, Rational)
+  , vPlayFrom :: Maybe (Word32, Seconds)
   , vDrumAudio :: (Source, Source)
   , vSongAudio :: (Source, Source)
   , vAudioStart :: Float
@@ -75,10 +77,10 @@ playUpdate = gets vPlayFrom >>= \case
   Nothing     -> return False
   Just (w, r) -> do
     w' <- liftIO getTicks
-    modify $ \prog -> prog { vPosition = r + fromIntegral (w' - w) / 500 }
+    modify $ \prog -> prog { vPosition = r + fromIntegral (w' - w) / 1000 }
     return True
 
-timeToX :: Rational -> Prog Int
+timeToX :: Seconds -> Prog Int
 timeToX pos = do
   now <- gets vPosition
   pps <- gets vResolution
@@ -97,7 +99,7 @@ noteToY n = 290 - 25 * case n of
   CrashB -> 3
   CrashG -> 4
 
-drawNote :: Rational -> Note -> Prog ()
+drawNote :: Seconds -> Note -> Prog ()
 drawNote pos note = void $ do
   surf <- gets vNoteSprites
   scrn <- gets vScreen
@@ -120,8 +122,8 @@ drawNotes = do
     drawLess mp = mapM_ (\(pos, nts) -> mapM_ (drawNote pos) $ Set.toList nts) $ Map.toList mp
     drawMore = drawLess
 
-kitchen :: Map.Map Rational (Set.Set Note)
-kitchen = Map.fromList
+kitchen :: Map.Map Seconds (Set.Set Note)
+kitchen = Map.fromList $ map (\(sec, st) -> (sec / 2, st))
   [ (0, Set.fromList [Kick, CrashG])
   , (1, Set.fromList [RideB])
   , (1.5, Set.fromList [Snare])
@@ -174,7 +176,7 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vBackground = bgImage
         , vChart = kitchen
         , vPosition = 0
-        , vResolution = 100
+        , vResolution = 200
         , vPlayFrom = Nothing
         , vDrumAudio = (srcDrumL, srcDrumR)
         , vSongAudio = (srcSongL, srcSongR)
@@ -224,7 +226,7 @@ inputLoop' b = liftIO pollEvent >>= \case
         strt <- gets vAudioStart
         modify $ \prog -> prog { vPlayFrom = Just (tks, now) }
         forM_ [srcDrumL, srcDrumR, srcSongL, srcSongR] $ \src ->
-          liftIO $ secOffset src $= strt + realToFrac now / 2
+          liftIO $ secOffset src $= strt + realToFrac now
         liftIO $ play [srcDrumL, srcDrumR, srcSongL, srcSongR]
         inputLoop
       Just _ -> do
