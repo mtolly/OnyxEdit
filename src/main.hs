@@ -9,7 +9,7 @@ import Sound.ALUT
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-import Control.Monad (void, forM_, zipWithM_)
+import Control.Monad (void, forM_, zipWithM_, when)
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
 
@@ -47,6 +47,7 @@ data Program = Program
   { vScreen :: Surface
   , vNoteSprites :: Surface
   , vBackground :: Surface
+  , vStaff :: Surface
   , vChart :: Map.Map Seconds (Set.Set Note)
   , vPosition :: Seconds
   , vResolution :: Int
@@ -55,7 +56,14 @@ data Program = Program
   , vSongAudio :: (Source, Source)
   , vAudioStart :: Float
   , vPlaySpeed :: Rational
+  , vLines :: Map.Map Seconds Line
+  , vMeasureSprite :: Surface
+  , vBeatSprite :: Surface
+  , vSubBeatSprite :: Surface
   }
+
+data Line = Measure | Beat | SubBeat
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 type Prog = StateT Program IO
 
@@ -100,6 +108,21 @@ noteToY n = 290 - 25 * case n of
   CrashB -> 3
   CrashG -> 4
 
+drawLine :: Seconds -> Line -> Prog ()
+drawLine pos l = void $ do
+  x <- fmap (subtract 1) $ timeToX pos
+  scrn <- gets vScreen
+  case l of
+    Measure -> do
+      s <- gets vMeasureSprite
+      liftIO $ apply x 189 s scrn
+    Beat -> do
+      s <- gets vBeatSprite
+      liftIO $ apply x 189 s scrn
+    SubBeat -> do
+      s <- gets vSubBeatSprite
+      liftIO $ apply x 214 s scrn
+
 drawNote :: Seconds -> Note -> Prog ()
 drawNote pos note = void $ do
   surf <- gets vNoteSprites
@@ -126,6 +149,7 @@ drawNotes = do
 kitchen :: Map.Map Seconds (Set.Set Note)
 kitchen = Map.fromList $ map (\(sec, st) -> (sec / 2, st))
   [ (0  , Set.fromList [Kick, CrashG])
+  , (0.5, Set.fromList [HihatF])
   , (1  , Set.fromList [RideB])
   , (1.5, Set.fromList [Snare])
   , (2  , Set.fromList [RideB])
@@ -138,14 +162,42 @@ kitchen = Map.fromList $ map (\(sec, st) -> (sec / 2, st))
   , (5.5, Set.fromList [HihatO])
   ]
 
+kitchenLines :: Map.Map Seconds Line
+kitchenLines = Map.fromList $ map (\(sec, st) -> (sec / 2, st))
+  [ (0  , Measure)
+  , (0.5, SubBeat)
+  , (1  , Beat)
+  , (1.5, SubBeat)
+  , (2  , Beat)
+  , (2.5, SubBeat)
+  , (3  , Measure)
+  , (3.5, SubBeat)
+  , (4  , Beat)
+  , (4.5, SubBeat)
+  , (5  , Beat)
+  , (5.5, SubBeat)
+  , (6  , Measure)
+  ]
+
 drawBG :: Prog ()
 drawBG = void $ do
   scrn <- gets vScreen
   bg   <- gets vBackground
   liftIO $ apply 0 0 bg scrn
 
+drawLines :: Prog ()
+drawLines = gets vLines >>= mapM_ (uncurry drawLine) . Map.toList
+
+drawStaff :: Prog ()
+drawStaff = void $ do
+  scrn <- gets vScreen
+  stf  <- gets vStaff
+  liftIO $ apply 0 0 stf scrn
+
 draw :: Prog ()
-draw = drawBG >> drawNotes >> gets vScreen >>= liftIO . Graphics.UI.SDL.flip
+draw = do
+  drawBG >> drawLines >> drawStaff >> drawNotes
+  gets vScreen >>= liftIO . Graphics.UI.SDL.flip
 
 loadSource :: FilePath -> Source -> IO ()
 loadSource f src = createBuffer (File f) >>= \buf -> buffer src $= Just buf
@@ -154,11 +206,13 @@ main :: IO ()
 main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -> do
 
   -- Get screen, load sprites
-  scrn     <- setVideoMode 1000 480 32 [SWSurface]
-  gemFile  <- getDataFileName "gems.png"
-  gemSheet <- loadImage gemFile
-  bgFile   <- getDataFileName "bg.png"
-  bgImage  <- loadImage bgFile
+  scrn       <- setVideoMode 1000 480 32 [SWSurface]
+  gemSheet   <- getDataFileName "gems.png" >>= loadImage
+  bgImage    <- getDataFileName "bg.png" >>= loadImage
+  staffImage <- getDataFileName "staff.png" >>= loadImage
+  measure    <- getDataFileName "measure.png" >>= loadImage
+  beat       <- getDataFileName "beat.png" >>= loadImage
+  subbeat    <- getDataFileName "subbeat.png" >>= loadImage
 
   -- Load audio
   srcs@[srcDrumL, srcDrumR, srcSongL, srcSongR] <- genObjectNames 4
@@ -172,6 +226,7 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         { vScreen = scrn
         , vNoteSprites = gemSheet
         , vBackground = bgImage
+        , vStaff = staffImage
         , vChart = kitchen
         , vPosition = 0
         , vResolution = 200
@@ -180,11 +235,15 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vSongAudio = (srcSongL, srcSongR)
         , vAudioStart = 39.726
         , vPlaySpeed = 1
+        , vLines = kitchenLines
+        , vMeasureSprite = measure
+        , vBeatSprite = beat
+        , vSubBeatSprite = subbeat
         }
   evalStateT (draw >> inputLoop) prog
 
 inputLoop :: Prog ()
-inputLoop = playUpdate >>= \b -> (if b then draw else return ()) >> inputLoop' b
+inputLoop = playUpdate >>= \b -> when b draw >> inputLoop' b
 
 updateSpeed :: Prog ()
 updateSpeed = do
