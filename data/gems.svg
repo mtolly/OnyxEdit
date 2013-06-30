@@ -1,0 +1,48 @@
+<svg height='150' version='1.1' width='150' xmlns='http://www.w3.org/2000/svg'>
+  <style>
+    .thick {
+      stroke-width: 2;
+      stroke: black;
+      stroke-linejoin: round; }
+    
+    .orange {
+      fill: #c8641e; }
+    
+    .red {
+      fill: #c81e1e; }
+    
+    .yellow {
+      fill: #aaaa1e; }
+    
+    .blue {
+      fill: #3c3cc8; }
+    
+    .green {
+      fill: #32c832; }
+  </style>
+  <rect class='thick orange' height='20' rx='2' ry='2' width='20' x='5' y='5'></rect>
+  <rect class='thick red' height='20' rx='2' ry='2' width='20' x='5' y='35'></rect>
+  <rect class='thick yellow' height='20' rx='2' ry='2' width='20' x='5' y='65'></rect>
+  <rect class='thick blue' height='20' rx='2' ry='2' width='20' x='5' y='95'></rect>
+  <rect class='thick green' height='20' rx='2' ry='2' width='20' x='5' y='125'></rect>
+  <circle class='thick orange' cx='45' cy='15' r='10'></circle>
+  <circle class='thick red' cx='45' cy='45' r='10'></circle>
+  <circle class='thick yellow' cx='45' cy='75' r='10'></circle>
+  <circle class='thick blue' cx='45' cy='105' r='10'></circle>
+  <circle class='thick green' cx='45' cy='135' r='10'></circle>
+  <polygon class='thick orange' points='75,5 65,15 75,25 85,15'></polygon>
+  <polygon class='thick red' points='75,35 65,45 75,55 85,45'></polygon>
+  <polygon class='thick yellow' points='75,65 65,75 75,85 85,75'></polygon>
+  <polygon class='thick blue' points='75,95 65,105 75,115 85,105'></polygon>
+  <polygon class='thick green' points='75,125 65,135 75,145 85,135'></polygon>
+  <polygon class='thick orange' points='105,5 95,10 100,15 95,20 105,25 115,20 110,15 115,10'></polygon>
+  <polygon class='thick red' points='105,35 95,40 100,45 95,50 105,55 115,50 110,45 115,40'></polygon>
+  <polygon class='thick yellow' points='105,65 95,70 100,75 95,80 105,85 115,80 110,75 115,70'></polygon>
+  <polygon class='thick blue' points='105,95 95,100 100,105 95,110 105,115 115,110 110,105 115,100'></polygon>
+  <polygon class='thick green' points='105,125 95,130 100,135 95,140 105,145 115,140 110,135 115,130'></polygon>
+  <circle class='thick orange' cx='135' cy='15' r='5'></circle>
+  <circle class='thick red' cx='135' cy='45' r='5'></circle>
+  <circle class='thick yellow' cx='135' cy='75' r='5'></circle>
+  <circle class='thick blue' cx='135' cy='105' r='5'></circle>
+  <circle class='thick green' cx='135' cy='135' r='5'></circle>
+</svg>

@@ -1,0 +1,55 @@
+%svg{ xmlns: 'http://www.w3.org/2000/svg', version: '1.1', width: 30 * 5, height: 30 * 5 }
+
+  - $width = 30 * 5
+  - $height = 30 * 5
+
+  :sass
+    .thick
+      stroke-width: 2
+      stroke: rgb(0,0,0)
+      stroke-linejoin: round
+    .orange
+      fill: rgb(200, 100, 30)
+    .red
+      fill: rgb(200, 30, 30)
+    .yellow
+      fill: rgb(170, 170, 30)
+    .blue
+      fill: rgb(60, 60, 200)
+    .green
+      fill: rgb(50, 200, 50)
+
+  -# drum
+  %rect.thick.orange{ width: 20, height: 20, x: 5, y: 5, rx: 2, ry: 2 }
+  %rect.thick.red{    width: 20, height: 20, x: 5, y: 35, rx: 2, ry: 2 }
+  %rect.thick.yellow{ width: 20, height: 20, x: 5, y: 65, rx: 2, ry: 2 }
+  %rect.thick.blue{   width: 20, height: 20, x: 5, y: 95, rx: 2, ry: 2 }
+  %rect.thick.green{  width: 20, height: 20, x: 5, y: 125, rx: 2, ry: 2 }
+
+  -# cymbal (crash)
+  %circle.thick.orange{ r: 10, cx: 45, cy: 15 }
+  %circle.thick.red{    r: 10, cx: 45, cy: 45 }
+  %circle.thick.yellow{ r: 10, cx: 45, cy: 75 }
+  %circle.thick.blue{   r: 10, cx: 45, cy: 105 }
+  %circle.thick.green{  r: 10, cx: 45, cy: 135 }
+
+  -# ding (ride, closed hihat)
+  %polygon.thick.orange{ points: '75,5 65,15 75,25 85,15' }
+  %polygon.thick.red{    points: '75,35 65,45 75,55 85,45' }
+  %polygon.thick.yellow{ points: '75,65 65,75 75,85 85,75' }
+  %polygon.thick.blue{   points: '75,95 65,105 75,115 85,105' }
+  %polygon.thick.green{  points: '75,125 65,135 75,145 85,135' }
+
+  -# open hihat
+  %polygon.thick.orange{ points: "105,5 95,10 100,15 95,20 105,25 115,20 110,15 115,10" }
+  %polygon.thick.red{    points: "105,35 95,40 100,45 95,50 105,55 115,50 110,45 115,40" }
+  %polygon.thick.yellow{ points: "105,65 95,70 100,75 95,80 105,85 115,80 110,75 115,70" }
+  %polygon.thick.blue{   points: "105,95 95,100 100,105 95,110 105,115 115,110 110,105 115,100" }
+  %polygon.thick.green{  points: "105,125 95,130 100,135 95,140 105,145 115,140 110,135 115,130" }
+
+  -# ghost notes, foot close hihat
+  %circle.thick.orange{ r: 5, cx: 135, cy: 15 }
+  %circle.thick.red{    r: 5, cx: 135, cy: 45 }
+  %circle.thick.yellow{ r: 5, cx: 135, cy: 75 }
+  %circle.thick.blue{   r: 5, cx: 135, cy: 105 }
+  %circle.thick.green{  r: 5, cx: 135, cy: 135 }

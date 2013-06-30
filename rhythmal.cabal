@@ -1,0 +1,21 @@
+Name:               rhythmal
+Version:            0.0.1
+License:            GPL
+Author:             Michael Tolly
+Maintainer:         miketolly@gmail.com
+Build-Type:         Simple
+Cabal-Version:      >= 1.8
+Category:           Sound
+Data-Dir:           data
+Data-Files:         gems.png, bg.png
+
+Executable rhythmal
+  Build-Depends:    base >= 4 && <= 5
+                    , transformers
+                    , containers
+                    , ALUT
+                    , SDL-image
+                    , SDL
+  Main-Is:          main.hs
+  Other-Modules:    Paths_rhythmal
+  Ghc-Options:      -Wall
