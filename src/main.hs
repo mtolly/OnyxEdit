@@ -271,11 +271,11 @@ inputLoop' b = liftIO pollEvent >>= \evt -> case evt of
     modify $ \prog -> prog { vPlaySpeed = min 2 $ vPlaySpeed prog + 0.1 }
     updateSpeed
     inputLoop
-  MouseButtonDown _ _ ButtonWheelDown -> if b then inputLoop' b else do
+  MouseButtonDown _ _ ButtonWheelDown -> if b then inputLoop else do
     modify $ \prog -> prog { vPosition = fromInteger (floor ((vPosition prog * 4) + 1)) / 4 }
     draw
     inputLoop
-  MouseButtonDown _ _ ButtonWheelUp -> if b then inputLoop' b else do
+  MouseButtonDown _ _ ButtonWheelUp -> if b then inputLoop else do
     modify $ \prog -> prog { vPosition = max 0 $ fromInteger (ceiling ((vPosition prog * 4) - 1)) / 4 }
     draw
     inputLoop
@@ -309,6 +309,10 @@ inputLoop' b = liftIO pollEvent >>= \evt -> case evt of
     g <- liftIO $ Sound.ALUT.get $ sourceGain srcSongL
     forM_ [srcSongL, srcSongR] $ \src ->
       liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
+    inputLoop
+  KeyDown (Keysym SDLK_z _ _) -> if b then inputLoop else do
+    modify $ \prog -> prog { vPosition = 0 }
+    draw
     inputLoop
   _    -> inputLoop
 
