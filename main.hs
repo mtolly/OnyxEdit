@@ -9,7 +9,7 @@ import Sound.ALUT
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-import Control.Monad (void, forM_)
+import Control.Monad (void, forM_, zipWithM_)
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
 
@@ -124,23 +124,23 @@ drawNotes = do
 
 kitchen :: Map.Map Seconds (Set.Set Note)
 kitchen = Map.fromList $ map (\(sec, st) -> (sec / 2, st))
-  [ (0, Set.fromList [Kick, CrashG])
-  , (1, Set.fromList [RideB])
+  [ (0  , Set.fromList [Kick, CrashG])
+  , (1  , Set.fromList [RideB])
   , (1.5, Set.fromList [Snare])
-  , (2, Set.fromList [RideB])
+  , (2  , Set.fromList [RideB])
   , (2.5, Set.fromList [HihatO])
-  , (3, Set.fromList [Kick, HihatF, RideB])
+  , (3  , Set.fromList [Kick, HihatF, RideB])
   , (3.5, Set.fromList [HihatC])
-  , (4, Set.fromList [RideB])
+  , (4  , Set.fromList [RideB])
   , (4.5, Set.fromList [Snare])
-  , (5, Set.fromList [RideB])
+  , (5  , Set.fromList [RideB])
   , (5.5, Set.fromList [HihatO])
   ]
 
 drawBG :: Prog ()
 drawBG = void $ do
   scrn <- gets vScreen
-  bg <- gets vBackground
+  bg   <- gets vBackground
   liftIO $ apply 0 0 bg scrn
 
 draw :: Prog ()
@@ -153,18 +153,15 @@ main :: IO ()
 main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -> do
 
   -- Get screen, load sprites
-  scrn <- setVideoMode 1000 480 32 [SWSurface]
-  gemFile <- getDataFileName "gems.png"
+  scrn     <- setVideoMode 1000 480 32 [SWSurface]
+  gemFile  <- getDataFileName "gems.png"
   gemSheet <- loadImage gemFile
-  bgFile <- getDataFileName "bg.png"
-  bgImage <- loadImage bgFile
+  bgFile   <- getDataFileName "bg.png"
+  bgImage  <- loadImage bgFile
 
   -- Load audio
-  [srcDrumL, srcDrumR, srcSongL, srcSongR] <- genObjectNames 4
-  loadSource (args !! 0) srcDrumL
-  loadSource (args !! 1) srcDrumR
-  loadSource (args !! 2) srcSongL
-  loadSource (args !! 3) srcSongR
+  srcs@[srcDrumL, srcDrumR, srcSongL, srcSongR] <- genObjectNames 4
+  zipWithM_ loadSource args srcs
   forM_ [srcDrumL, srcSongL] $ \src ->
     liftIO $ sourcePosition src $= Vertex3 (-1) 0 0
   forM_ [srcDrumR, srcSongR] $ \src ->
@@ -203,7 +200,7 @@ inputLoop' b = liftIO pollEvent >>= \case
     draw
     inputLoop
   MouseButtonDown _ _ ButtonWheelUp -> if b then inputLoop' b else do
-    modify $ \prog -> prog { vPosition = vPosition prog - 0.5 }
+    modify $ \prog -> prog { vPosition = max 0 $ vPosition prog - 0.5 }
     draw
     inputLoop
   KeyDown (Keysym SDLK_1 _ _) -> do
