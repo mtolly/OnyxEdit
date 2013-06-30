@@ -17,5 +17,6 @@ Executable rhythmal
                     , SDL-image
                     , SDL
   Main-Is:          main.hs
+  Hs-Source-Dirs:   src
   Other-Modules:    Paths_rhythmal
   Ghc-Options:      -Wall
