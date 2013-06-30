@@ -56,6 +56,7 @@ data Program = Program
   , vDrumAudio :: (Source, Source)
   , vSongAudio :: (Source, Source)
   , vAudioStart :: Float
+  , vPlaySpeed :: Rational
   }
 
 type Prog = StateT Program IO
@@ -74,10 +75,12 @@ applyCenter x y src dst = do
 
 playUpdate :: Prog Bool
 playUpdate = gets vPlayFrom >>= \case
-  Nothing     -> return False
-  Just (w, r) -> do
-    w' <- liftIO getTicks
-    modify $ \prog -> prog { vPosition = r + fromIntegral (w' - w) / 1000 }
+  Nothing -> return False
+  Just _  -> do
+    (dl, _) <- gets vDrumAudio
+    t <- liftIO $ Sound.ALUT.get $ secOffset dl
+    a <- gets vAudioStart
+    modify $ \prog -> prog { vPosition = realToFrac $ t - a }
     return True
 
 timeToX :: Seconds -> Prog Int
@@ -178,11 +181,20 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vDrumAudio = (srcDrumL, srcDrumR)
         , vSongAudio = (srcSongL, srcSongR)
         , vAudioStart = 39.726
+        , vPlaySpeed = 1
         }
   evalStateT (draw >> inputLoop) prog
 
 inputLoop :: Prog ()
 inputLoop = playUpdate >>= \b -> (if b then draw else return ()) >> inputLoop' b
+
+updateSpeed :: Prog ()
+updateSpeed = do
+  spd <- gets vPlaySpeed
+  (dl, dr) <- gets vDrumAudio
+  (sl, sr) <- gets vSongAudio
+  liftIO $ forM_ [dl, dr, sl, sr] $ \src ->
+    pitch src $= realToFrac spd
 
 inputLoop' :: Bool -> Prog ()
 inputLoop' b = liftIO pollEvent >>= \case
@@ -194,6 +206,14 @@ inputLoop' b = liftIO pollEvent >>= \case
   KeyDown (Keysym SDLK_DOWN _ _) -> do
     modify $ \prog -> prog { vResolution = max 20 $ vResolution prog - 20 }
     draw
+    inputLoop
+  KeyDown (Keysym SDLK_LEFT _ _) -> do
+    modify $ \prog -> prog { vPlaySpeed = max 0.1 $ vPlaySpeed prog - 0.1 }
+    updateSpeed
+    inputLoop
+  KeyDown (Keysym SDLK_RIGHT _ _) -> do
+    modify $ \prog -> prog { vPlaySpeed = min 2 $ vPlaySpeed prog + 0.1 }
+    updateSpeed
     inputLoop
   MouseButtonDown _ _ ButtonWheelDown -> if b then inputLoop' b else do
     modify $ \prog -> prog { vPosition = vPosition prog + 0.5 }
