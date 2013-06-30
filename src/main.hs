@@ -242,7 +242,9 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
   evalStateT (draw >> inputLoop) prog
 
 inputLoop :: Prog ()
-inputLoop = playUpdate >>= \b -> when b draw >> inputLoop' b
+inputLoop = do
+  liftIO $ delay 10
+  playUpdate >>= \b -> when b draw >> inputLoop' b
 
 updateSpeed :: Prog ()
 updateSpeed = do
