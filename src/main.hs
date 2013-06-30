@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 module Main where
 
 import Graphics.UI.SDL
@@ -29,7 +28,7 @@ data Note
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 noteSprite :: Note -> (Int, Int)
-noteSprite = \case
+noteSprite n = case n of
   Kick -> (0, 0)
   HihatF -> (120, 60)
   Snare -> (0, 30)
@@ -254,7 +253,7 @@ updateSpeed = do
     pitch src $= realToFrac spd
 
 inputLoop' :: Bool -> Prog ()
-inputLoop' b = liftIO pollEvent >>= \case
+inputLoop' b = liftIO pollEvent >>= \evt -> case evt of
   Quit -> return ()
   KeyDown (Keysym SDLK_UP _ _) -> do
     modify $ \prog -> prog { vResolution = vResolution prog + 20 }
@@ -273,23 +272,15 @@ inputLoop' b = liftIO pollEvent >>= \case
     updateSpeed
     inputLoop
   MouseButtonDown _ _ ButtonWheelDown -> if b then inputLoop' b else do
-    modify $ \prog -> prog { vPosition = vPosition prog + 0.5 }
+    modify $ \prog -> prog { vPosition = vPosition prog + 0.25 }
     draw
     inputLoop
   MouseButtonDown _ _ ButtonWheelUp -> if b then inputLoop' b else do
-    modify $ \prog -> prog { vPosition = max 0 $ vPosition prog - 0.5 }
+    modify $ \prog -> prog { vPosition = max 0 $ vPosition prog - 0.25 }
     draw
     inputLoop
-  KeyDown (Keysym SDLK_1 _ _) -> do
-    now <- gets vPosition
-    modify $ \prog -> prog { vChart = Map.alter f now $ vChart prog }
-    draw
-    inputLoop
-    where f Nothing = Just $ Set.singleton Kick
-          f (Just notes) = case (Set.lookupIndex Kick notes, Set.size notes) of
-            (Just 0, 0) -> Nothing
-            (Just i, _) -> Just $ Set.deleteAt i notes
-            (Nothing, _) -> Just $ Set.insert Kick notes
+  KeyDown (Keysym SDLK_1 _ _) -> toggleDrum Kick >> draw >> inputLoop
+  KeyDown (Keysym SDLK_2 _ _) -> toggleDrum Snare >> draw >> inputLoop
   KeyDown (Keysym SDLK_SPACE _ _) -> if b
     then do
       (srcDrumL, srcDrumR) <- gets vDrumAudio
@@ -320,3 +311,13 @@ inputLoop' b = liftIO pollEvent >>= \case
       liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
     inputLoop
   _    -> inputLoop
+
+toggleDrum :: Note -> Prog ()
+toggleDrum n = do
+  now <- gets vPosition
+  modify $ \prog -> prog { vChart = Map.alter f now $ vChart prog }
+  where f Nothing = Just $ Set.singleton n
+        f (Just notes) = case (Set.lookupIndex n notes, Set.size notes) of
+          (Just 0, 0) -> Nothing
+          (Just i, _) -> Just $ Set.deleteAt i notes
+          (Nothing, _) -> Just $ Set.insert n notes
