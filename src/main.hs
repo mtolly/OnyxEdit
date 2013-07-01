@@ -43,26 +43,32 @@ noteSprite n = case n of
 type Seconds = Rational
 
 data Program = Program
-  { vSurfaces :: Surfaces
-  , vDrumChart :: Map.Map Seconds (Set.Set Note)
-  , vPosition :: Seconds
+  { vSurfaces   :: Surfaces
+  , vSources    :: Sources
+  , vDrumChart  :: Map.Map Seconds (Set.Set Note)
+  , vPosition   :: Seconds
   , vResolution :: Int
-  , vPlaying :: Bool
-  , vDrumAudio :: (Source, Source)
-  , vSongAudio :: (Source, Source)
-  , vAudioStart :: Float
-  , vPlaySpeed :: Rational
-  , vLines :: Map.Map Seconds Line
+  -- ^ Zoom level, in pixels (width) per second of time
+  , vPlaying    :: Bool
+  -- ^ Is audio currently playing?
+  , vPlaySpeed  :: Rational
+  , vLines      :: Map.Map Seconds Line
   } deriving (Eq, Ord, Show)
 
 data Surfaces = Surfaces
-  { vScreen :: Surface
-  , vNoteSheet :: Surface
-  , vBackground :: Surface
-  , vStaff :: Surface
+  { vScreen      :: Surface
+  , vNoteSheet   :: Surface
+  , vBackground  :: Surface
+  , vStaff       :: Surface
   , vMeasureLine :: Surface
-  , vBeatLine :: Surface
+  , vBeatLine    :: Surface
   , vSubBeatLine :: Surface
+  } deriving (Eq, Ord, Show)
+
+data Sources = Sources
+  { vAudioStart :: Float
+  , vDrumAudio  :: (Source, Source)
+  , vSongAudio  :: (Source, Source)
   } deriving (Eq, Ord, Show)
 
 data Line = Measure | Beat | SubBeat
@@ -85,9 +91,9 @@ applyCenter x y src dst = do
 playUpdate :: Prog Bool
 playUpdate = gets vPlaying >>= \b -> if b
   then do
-    (dl, _) <- gets vDrumAudio
+    (dl, _) <- gets $ vDrumAudio . vSources
     t <- liftIO $ Sound.ALUT.get $ secOffset dl
-    a <- gets vAudioStart
+    a <- gets $ vAudioStart . vSources
     modify $ \prog -> prog { vPosition = realToFrac $ t - a }
     return True
   else return False
@@ -234,15 +240,18 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vBeatLine = beat
         , vSubBeatLine = subbeat
         }
+      sources = Sources
+        { vAudioStart = 39.726
+        , vDrumAudio = (srcDrumL, srcDrumR)
+        , vSongAudio = (srcSongL, srcSongR)
+        }
       prog = Program
         { vSurfaces = surfaces
+        , vSources = sources
         , vDrumChart = kitchen
         , vPosition = 0
         , vResolution = 200
         , vPlaying = False
-        , vDrumAudio = (srcDrumL, srcDrumR)
-        , vSongAudio = (srcSongL, srcSongR)
-        , vAudioStart = 39.726
         , vPlaySpeed = 1
         , vLines = kitchenLines
         }
@@ -256,8 +265,8 @@ inputLoop = do
 updateSpeed :: Prog ()
 updateSpeed = do
   spd <- gets vPlaySpeed
-  (dl, dr) <- gets vDrumAudio
-  (sl, sr) <- gets vSongAudio
+  (dl, dr) <- gets $ vDrumAudio . vSources
+  (sl, sr) <- gets $ vSongAudio . vSources
   liftIO $ forM_ [dl, dr, sl, sr] $ \src ->
     pitch src $= realToFrac spd
 
@@ -292,29 +301,29 @@ inputLoop' b = liftIO pollEvent >>= \evt -> case evt of
   KeyDown (Keysym SDLK_2 _ _) -> unless b (toggleDrum Snare >> draw) >> inputLoop
   KeyDown (Keysym SDLK_SPACE _ _) -> if b
     then do
-      (srcDrumL, srcDrumR) <- gets vDrumAudio
-      (srcSongL, srcSongR) <- gets vSongAudio
+      (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
+      (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
       modify $ \prog -> prog { vPlaying = False }
       liftIO $ pause [srcDrumL, srcDrumR, srcSongL, srcSongR]
       inputLoop
     else do
       now <- gets vPosition
-      (srcDrumL, srcDrumR) <- gets vDrumAudio
-      (srcSongL, srcSongR) <- gets vSongAudio
-      strt <- gets vAudioStart
+      (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
+      (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
+      strt <- gets $ vAudioStart . vSources
       modify $ \prog -> prog { vPlaying = True }
       forM_ [srcDrumL, srcDrumR, srcSongL, srcSongR] $ \src ->
         liftIO $ secOffset src $= strt + realToFrac now
       liftIO $ play [srcDrumL, srcDrumR, srcSongL, srcSongR]
       inputLoop
   KeyDown (Keysym SDLK_d _ _) -> do
-    (srcDrumL, srcDrumR) <- gets vDrumAudio
+    (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
     g <- liftIO $ Sound.ALUT.get $ sourceGain srcDrumL
     forM_ [srcDrumL, srcDrumR] $ \src ->
       liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
     inputLoop
   KeyDown (Keysym SDLK_s _ _) -> do
-    (srcSongL, srcSongR) <- gets vSongAudio
+    (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
     g <- liftIO $ Sound.ALUT.get $ sourceGain srcSongL
     forM_ [srcSongL, srcSongR] $ \src ->
       liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
