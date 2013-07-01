@@ -43,11 +43,8 @@ noteSprite n = case n of
 type Seconds = Rational
 
 data Program = Program
-  { vScreen :: Surface
-  , vNoteSprites :: Surface
-  , vBackground :: Surface
-  , vStaff :: Surface
-  , vChart :: Map.Map Seconds (Set.Set Note)
+  { vSurfaces :: Surfaces
+  , vDrumChart :: Map.Map Seconds (Set.Set Note)
   , vPosition :: Seconds
   , vResolution :: Int
   , vPlaying :: Bool
@@ -56,10 +53,17 @@ data Program = Program
   , vAudioStart :: Float
   , vPlaySpeed :: Rational
   , vLines :: Map.Map Seconds Line
-  , vMeasureSprite :: Surface
-  , vBeatSprite :: Surface
-  , vSubBeatSprite :: Surface
-  }
+  } deriving (Eq, Ord, Show)
+
+data Surfaces = Surfaces
+  { vScreen :: Surface
+  , vNoteSheet :: Surface
+  , vBackground :: Surface
+  , vStaff :: Surface
+  , vMeasureLine :: Surface
+  , vBeatLine :: Surface
+  , vSubBeatLine :: Surface
+  } deriving (Eq, Ord, Show)
 
 data Line = Measure | Beat | SubBeat
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -110,22 +114,22 @@ noteToY n = 290 - 25 * case n of
 drawLine :: Seconds -> Line -> Prog ()
 drawLine pos l = void $ do
   x <- fmap (subtract 1) $ timeToX pos
-  scrn <- gets vScreen
+  scrn <- gets $ vScreen . vSurfaces
   case l of
     Measure -> do
-      s <- gets vMeasureSprite
+      s <- gets $ vMeasureLine . vSurfaces
       liftIO $ apply x 189 s scrn
     Beat -> do
-      s <- gets vBeatSprite
+      s <- gets $ vBeatLine . vSurfaces
       liftIO $ apply x 189 s scrn
     SubBeat -> do
-      s <- gets vSubBeatSprite
+      s <- gets $ vSubBeatLine . vSurfaces
       liftIO $ apply x 214 s scrn
 
 drawNote :: Seconds -> Note -> Prog ()
 drawNote pos note = void $ do
-  surf <- gets vNoteSprites
-  scrn <- gets vScreen
+  surf <- gets $ vNoteSheet . vSurfaces
+  scrn <- gets $ vScreen . vSurfaces
   x <- timeToX pos
   let (clipX, clipY) = noteSprite note
       clip = Just $ Rect clipX clipY 30 30
@@ -134,7 +138,7 @@ drawNote pos note = void $ do
 
 drawNotes :: Prog ()
 drawNotes = do
-  notes <- gets vChart
+  notes <- gets vDrumChart
   now <- gets vPosition
   case Map.splitLookup now notes of
     (lt, eq, gt) -> do
@@ -180,8 +184,8 @@ kitchenLines = Map.fromList $ map (\(sec, st) -> (sec / 2, st))
 
 drawBG :: Prog ()
 drawBG = void $ do
-  scrn <- gets vScreen
-  bg   <- gets vBackground
+  scrn <- gets $ vScreen . vSurfaces
+  bg   <- gets $ vBackground . vSurfaces
   liftIO $ apply 0 0 bg scrn
 
 drawLines :: Prog ()
@@ -189,14 +193,14 @@ drawLines = gets vLines >>= mapM_ (uncurry drawLine) . Map.toList
 
 drawStaff :: Prog ()
 drawStaff = void $ do
-  scrn <- gets vScreen
-  stf  <- gets vStaff
+  scrn <- gets $ vScreen . vSurfaces
+  stf  <- gets $ vStaff . vSurfaces
   liftIO $ apply 0 0 stf scrn
 
 draw :: Prog ()
 draw = do
   drawBG >> drawLines >> drawStaff >> drawNotes
-  gets vScreen >>= liftIO . Graphics.UI.SDL.flip
+  gets (vScreen . vSurfaces) >>= liftIO . Graphics.UI.SDL.flip
 
 loadSource :: FilePath -> Source -> IO ()
 loadSource f src = createBuffer (File f) >>= \buf -> buffer src $= Just buf
@@ -221,12 +225,18 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
   forM_ [srcDrumR, srcSongR] $ \src ->
     liftIO $ sourcePosition src $= Vertex3 1 0 0
 
-  let prog = Program
+  let surfaces = Surfaces
         { vScreen = scrn
-        , vNoteSprites = gemSheet
+        , vNoteSheet = gemSheet
         , vBackground = bgImage
         , vStaff = staffImage
-        , vChart = kitchen
+        , vMeasureLine = measure
+        , vBeatLine = beat
+        , vSubBeatLine = subbeat
+        }
+      prog = Program
+        { vSurfaces = surfaces
+        , vDrumChart = kitchen
         , vPosition = 0
         , vResolution = 200
         , vPlaying = False
@@ -235,15 +245,12 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vAudioStart = 39.726
         , vPlaySpeed = 1
         , vLines = kitchenLines
-        , vMeasureSprite = measure
-        , vBeatSprite = beat
-        , vSubBeatSprite = subbeat
         }
   evalStateT (draw >> inputLoop) prog
 
 inputLoop :: Prog ()
 inputLoop = do
-  liftIO $ delay 10
+  liftIO $ delay 5
   playUpdate >>= \b -> when b draw >> inputLoop' b
 
 updateSpeed :: Prog ()
@@ -321,7 +328,7 @@ inputLoop' b = liftIO pollEvent >>= \evt -> case evt of
 toggleDrum :: Note -> Prog ()
 toggleDrum n = do
   now <- gets vPosition
-  modify $ \prog -> prog { vChart = Map.alter f now $ vChart prog }
+  modify $ \prog -> prog { vDrumChart = Map.alter f now $ vDrumChart prog }
   where f Nothing = Just $ Set.singleton n
         f (Just notes) = case (Set.lookupIndex n notes, Set.size notes) of
           (Just 0, 0) -> Nothing
