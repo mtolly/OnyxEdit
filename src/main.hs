@@ -41,6 +41,8 @@ noteSprite n = case n of
   CrashG -> (30, 120)
 
 type Seconds = Rational
+type Beats   = Rational
+type BPS     = Rational
 
 data Program = Program
   { vSurfaces   :: Surfaces
@@ -52,8 +54,41 @@ data Program = Program
   , vPlaying    :: Bool
   -- ^ Is audio currently playing?
   , vPlaySpeed  :: Rational
+  , vTempos     :: Map.Map Seconds (Beats, BPS)
+  , vTemposRev  :: Map.Map Beats (Seconds, BPS)
+  , vMeasures   :: Map.Map Beats (Int, Beats)
   , vLines      :: Map.Map Seconds Line
   } deriving (Eq, Ord, Show)
+
+secondsToBeats :: Seconds -> Prog Beats
+secondsToBeats secs = do
+  tmps <- gets vTempos
+  return $ case Map.splitLookup secs tmps of
+    (_, Just (bts, _), _) -> bts
+    (lt, Nothing, _) -> case Map.maxViewWithKey lt of
+      Nothing -> error $
+        "secondsToBeats: no tempo event before " ++ show secs ++ " seconds"
+      Just ((secs', (bts, bps)), _) ->
+        bts + (secs - secs') * bps
+
+beatsToSeconds :: Beats -> Prog Seconds
+beatsToSeconds bts = do
+  tmps <- gets vTemposRev
+  return $ case Map.splitLookup bts tmps of
+    (_, Just (secs, _), _) -> secs
+    (lt, Nothing, _) -> case Map.maxViewWithKey lt of
+      Nothing -> error $
+        "beatsToSeconds: no tempo event before " ++ show bts ++ " beats"
+      Just ((bts', (secs, bps)), _) ->
+        secs + (bts - bts') / bps
+
+-- TODO: add Beat and SubBeat lines
+makeLines :: Prog ()
+makeLines = do
+  bts <- fmap Map.keys $ gets vMeasures
+  secs <- mapM beatsToSeconds bts
+  modify $ \prog ->
+    prog { vLines = Map.fromDistinctAscList $ zip secs $ repeat Measure }
 
 data Surfaces = Surfaces
   { vScreen      :: Surface
@@ -171,23 +206,6 @@ kitchen = Map.fromList $ map (\(sec, st) -> (sec / 2, st))
   , (5.5, Set.fromList [HihatO])
   ]
 
-kitchenLines :: Map.Map Seconds Line
-kitchenLines = Map.fromList $ map (\(sec, st) -> (sec / 2, st))
-  [ (0  , Measure)
-  , (0.5, SubBeat)
-  , (1  , Beat)
-  , (1.5, SubBeat)
-  , (2  , Beat)
-  , (2.5, SubBeat)
-  , (3  , Measure)
-  , (3.5, SubBeat)
-  , (4  , Beat)
-  , (4.5, SubBeat)
-  , (5  , Beat)
-  , (5.5, SubBeat)
-  , (6  , Measure)
-  ]
-
 drawBG :: Prog ()
 drawBG = void $ do
   scrn <- gets $ vScreen . vSurfaces
@@ -253,9 +271,12 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vResolution = 200
         , vPlaying = False
         , vPlaySpeed = 1
-        , vLines = kitchenLines
+        , vTempos = Map.fromList [(0, (0, 2))]
+        , vTemposRev = Map.fromList [(0, (0, 2))]
+        , vMeasures = Map.fromList [(0, (3, 1)), (3, (3, 1))]
+        , vLines = undefined
         }
-  evalStateT (draw >> inputLoop) prog
+  evalStateT (makeLines >> draw >> inputLoop) prog
 
 inputLoop :: Prog ()
 inputLoop = do
