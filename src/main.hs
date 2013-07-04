@@ -15,7 +15,7 @@ import Control.Monad.IO.Class
 
 import System.Exit
 
-import Paths_rhythmal
+import Paths_OnyxEdit
 
 data Note
   = Kick
@@ -304,28 +304,28 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         }
   evalStateT (setPosition 0 >> makeLines >> draw >> inputLoop) prog
 
-setSpeed :: Rational -> Prog ()
-setSpeed spd = do
-  modify $ \prog -> prog { vPlaySpeed = spd }
+pauseAndEdit :: ([Source] -> Prog ()) -> Prog ()
+pauseAndEdit f = do
   (dl, dr) <- gets $ vDrumAudio . vSources
   (sl, sr) <- gets $ vSongAudio . vSources
+  let srcs = [dl, dr, sl, sr]
   b <- gets vPlaying
-  when b $ liftIO $ pause [dl, dr, sl, sr]
-  liftIO $ forM_ [dl, dr, sl, sr] $ \src ->
+  when b $ liftIO $ pause srcs
+  f [dl, dr, sl, sr]
+  when b $ liftIO $ play srcs
+
+setSpeed :: Rational -> Prog ()
+setSpeed spd = pauseAndEdit $ \srcs ->
+  liftIO $ forM_ srcs $ \src ->
     pitch src $= realToFrac spd
-  when b $ liftIO $ play [dl, dr, sl, sr]
 
 setPosition :: Seconds -> Prog ()
 setPosition pos = do
-  modify $ \prog -> prog { vPosition = pos }
   strt <- gets $ vAudioStart . vSources
-  (dl, dr) <- gets $ vDrumAudio . vSources
-  (sl, sr) <- gets $ vSongAudio . vSources
-  b <- gets vPlaying
-  when b $ liftIO $ pause [dl, dr, sl, sr]
-  liftIO $ forM_ [dl, dr, sl, sr] $ \src ->
-    secOffset src $= strt + realToFrac pos
-  when b $ liftIO $ play [dl, dr, sl, sr]
+  let pos' = strt + realToFrac pos
+  pauseAndEdit $ \srcs ->
+    liftIO $ forM_ srcs $ \src ->
+      secOffset src $= pos'
 
 inputLoop :: Prog ()
 inputLoop = do
@@ -336,9 +336,9 @@ inputLoop = do
   evt <- liftIO pollEvent
   case evt of
     Quit -> liftIO exitSuccess
-    KeyDown (Keysym SDLK_UP _ _) -> do
+    KeyDown (Keysym SDLK_UP _ _) ->
       modify $ \prog -> prog { vResolution = vResolution prog + 20 }
-    KeyDown (Keysym SDLK_DOWN _ _) -> do
+    KeyDown (Keysym SDLK_DOWN _ _) ->
       modify $ \prog -> prog { vResolution = max 20 $ vResolution prog - 20 }
     KeyDown (Keysym SDLK_LEFT _ _) -> do
       spd <- gets vPlaySpeed
@@ -349,40 +349,33 @@ inputLoop = do
     MouseButtonDown _ _ ButtonWheelDown -> do
       pos <- gets vPosition
       lns <- gets vLines
-      if b
-        then case Map.splitLookup pos lns of
-          (_, _, gt) -> case reverse $ take 2 $ Map.toAscList gt of
+      case Map.splitLookup pos lns of
+        (_, _, gt) -> if b
+          then case reverse $ take 2 $ Map.toAscList gt of
             (k, _) : _ -> setPosition k
             []         -> return ()
-        else case Map.splitLookup pos lns of
-          (_, _, gt) -> case Map.minViewWithKey gt of
+          else case Map.minViewWithKey gt of
             Just ((k, _), _) -> setPosition k
             Nothing          -> return ()
     MouseButtonDown _ _ ButtonWheelUp -> do
       pos <- gets vPosition
       lns <- gets vLines
-      if b
-        then case Map.splitLookup pos lns of
-          (lt, _, _) -> case reverse $ take 3 $ Map.toDescList lt of
+      case Map.splitLookup pos lns of
+        (lt, _, _) -> if b
+          then case reverse $ take 3 $ Map.toDescList lt of
             (k, _) : _ -> setPosition k
             []         -> return ()
-        else case Map.splitLookup pos lns of
-          (lt, _, _) -> case Map.maxViewWithKey lt of
+          else case Map.maxViewWithKey lt of
             Just ((k, _), _) -> setPosition k
             Nothing          -> return ()
     KeyDown (Keysym SDLK_1 _ _) -> unless b $ toggleDrum Kick
     KeyDown (Keysym SDLK_2 _ _) -> unless b $ toggleDrum Snare
-    KeyDown (Keysym SDLK_SPACE _ _) -> if b
-      then do
-        modify $ \prog -> prog { vPlaying = False }
-        (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
-        (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
-        liftIO $ pause [srcDrumL, srcDrumR, srcSongL, srcSongR]
-      else do
-        modify $ \prog -> prog { vPlaying = True }
-        (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
-        (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
-        liftIO $ play [srcDrumL, srcDrumR, srcSongL, srcSongR]
+    KeyDown (Keysym SDLK_SPACE _ _) -> do
+      (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
+      (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
+      modify $ \prog -> prog { vPlaying = not b }
+      liftIO $ (if b then pause else play)
+        [srcDrumL, srcDrumR, srcSongL, srcSongR]
     KeyDown (Keysym SDLK_d _ _) -> do
       (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
       g <- liftIO $ Sound.ALUT.get $ sourceGain srcDrumL
@@ -393,8 +386,7 @@ inputLoop = do
       g <- liftIO $ Sound.ALUT.get $ sourceGain srcSongL
       forM_ [srcSongL, srcSongR] $ \src ->
         liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
-    KeyDown (Keysym SDLK_z _ _) -> do
-      setPosition 0
+    KeyDown (Keysym SDLK_z _ _) -> setPosition 0
     _    -> return ()
   inputLoop
 

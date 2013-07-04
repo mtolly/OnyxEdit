@@ -1,4 +1,4 @@
-Name:               rhythmal
+Name:               OnyxEdit
 Version:            0.0.1
 License:            GPL
 Author:             Michael Tolly
@@ -9,7 +9,7 @@ Category:           Sound
 Data-Dir:           data
 Data-Files:         gems.png, bg.png, measure.png, beat.png, subbeat.png, staff.png
 
-Executable rhythmal
+Executable onyxedit
   Build-Depends:    base >= 4 && <= 5
                     , transformers
                     , containers
@@ -18,5 +18,5 @@ Executable rhythmal
                     , SDL
   Main-Is:          main.hs
   Hs-Source-Dirs:   src
-  Other-Modules:    Paths_rhythmal
+  Other-Modules:    Paths_OnyxEdit
   Ghc-Options:      -Wall
