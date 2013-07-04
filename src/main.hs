@@ -24,8 +24,8 @@ data Note
   | HihatF -- ^ Foot
   | HihatC -- ^ Closed
   | HihatO -- ^ Open
-  | RideB -- ^ Blue
-  | RideG -- ^ Green
+  | RideB  -- ^ Blue
+  | RideG  -- ^ Green
   | CrashY -- ^ Yellow
   | CrashB -- ^ Blue
   | CrashG -- ^ Green
@@ -121,6 +121,7 @@ data Sources = Sources
   { vAudioStart :: Float
   , vDrumAudio  :: (Source, Source)
   , vSongAudio  :: (Source, Source)
+  , vClick      :: Source
   } deriving (Eq, Ord, Show)
 
 data Line = Measure | Beat | SubBeat
@@ -142,10 +143,24 @@ applyCenter x y src dst = do
 
 playUpdate :: Prog ()
 playUpdate = gets vPlaying >>= \b -> when b $ do
+  pos <- gets vPosition
+  lns <- gets vLines
   (dl, _) <- gets $ vDrumAudio . vSources
   t <- liftIO $ Sound.ALUT.get $ secOffset dl
   a <- gets $ vAudioStart . vSources
-  modify $ \prog -> prog { vPosition = realToFrac $ t - a }
+  let pos' = realToFrac $ t - a
+  modify $ \prog -> prog { vPosition = pos' }
+  when (pos' > pos) $ case Map.splitLookup pos lns of
+    (_, eq, gt) -> case Map.splitLookup pos' gt of
+      (lt, _, _) -> let
+        startBeat = elem eq [Just Measure, Just Beat]
+        passedBeat = any (/= SubBeat) $ Map.elems lt
+        in when (startBeat || passedBeat) $ do
+          clk <- gets $ vClick . vSources
+          liftIO $ stop [clk]
+          liftIO $ secOffset clk $= 0
+          liftIO $ play [clk]
+
 
 timeToX :: Seconds -> Prog Int
 timeToX pos = do
@@ -276,6 +291,9 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
     liftIO $ sourcePosition src $= Vertex3 (-1) 0 0
   forM_ [srcDrumR, srcSongR] $ \src ->
     liftIO $ sourcePosition src $= Vertex3 1 0 0
+  [srcClick] <- genObjectNames 1
+  clk <- getDataFileName "click.wav"
+  loadSource clk srcClick
 
   let surfaces = Surfaces
         { vScreen = scrn
@@ -290,6 +308,7 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         { vAudioStart = 39.726
         , vDrumAudio = (srcDrumL, srcDrumR)
         , vSongAudio = (srcSongL, srcSongR)
+        , vClick = srcClick
         }
       prog = Program
         { vSurfaces = surfaces
@@ -319,7 +338,8 @@ pauseAndEdit f = do
   when b $ liftIO $ play srcs
 
 setSpeed :: Rational -> Prog ()
-setSpeed spd = pauseAndEdit $ \srcs ->
+setSpeed spd = pauseAndEdit $ \srcs -> do
+  modify $ \prog -> prog { vPlaySpeed = spd }
   liftIO $ forM_ srcs $ \src ->
     pitch src $= realToFrac spd
 
@@ -327,7 +347,8 @@ setPosition :: Seconds -> Prog ()
 setPosition pos = do
   strt <- gets $ vAudioStart . vSources
   let pos' = strt + realToFrac pos
-  pauseAndEdit $ \srcs ->
+  pauseAndEdit $ \srcs -> do
+    modify $ \prog -> prog { vPosition = pos }
     liftIO $ forM_ srcs $ \src ->
       secOffset src $= pos'
 
