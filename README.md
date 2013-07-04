@@ -1,4 +1,4 @@
-rhythmal
+OnyxEdit
 ========
 
 Rock Band MIDI editor. Made with Haskell, SDL, and OpenAL.
