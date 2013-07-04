@@ -33,16 +33,16 @@ data Note
 
 noteSprite :: Note -> (Int, Int)
 noteSprite n = case n of
-  Kick -> (0, 0)
-  HihatF -> (120, 60)
-  Snare -> (0, 30)
-  HihatC -> (60, 60)
-  HihatO -> (90, 60)
-  RideB -> (60, 90)
-  RideG -> (60, 120)
-  CrashY -> (30, 60)
-  CrashB -> (30, 90)
-  CrashG -> (30, 120)
+  Kick   -> (0  , 0  )
+  HihatF -> (120, 60 )
+  Snare  -> (0  , 30 )
+  HihatC -> (60 , 60 )
+  HihatO -> (90 , 60 )
+  RideB  -> (60 , 90 )
+  RideG  -> (60 , 120)
+  CrashY -> (30 , 60 )
+  CrashB -> (30 , 90 )
+  CrashG -> (30 , 120)
 
 type Seconds = Rational
 type Beats   = Rational
@@ -59,9 +59,12 @@ data Program = Program
   -- ^ Is audio currently playing?
   , vPlaySpeed  :: Rational
   , vTempos     :: Map.Map Seconds (Beats, BPS)
+  -- ^ Tempo events to convert from seconds to beats.
   , vTemposRev  :: Map.Map Beats (Seconds, BPS)
+  -- ^ Tempo events to convert from beats to seconds.
   , vMeasures   :: Map.Map Beats (Int, Beats)
   , vDivision   :: Beats
+  -- ^ The fraction of a beat that creates sub-beat lines.
   , vLines      :: Map.Map Seconds Line
   } deriving (Eq, Ord, Show)
 
@@ -73,8 +76,7 @@ secondsToBeats secs = do
     (lt, Nothing, _) -> case Map.maxViewWithKey lt of
       Nothing -> error $
         "secondsToBeats: no tempo event before " ++ show secs ++ " seconds"
-      Just ((secs', (bts, bps)), _) ->
-        bts + (secs - secs') * bps
+      Just ((secs', (bts, bps)), _) -> bts + (secs - secs') * bps
 
 beatsToSeconds :: Beats -> Prog Seconds
 beatsToSeconds bts = do
@@ -84,11 +86,10 @@ beatsToSeconds bts = do
     (lt, Nothing, _) -> case Map.maxViewWithKey lt of
       Nothing -> error $
         "beatsToSeconds: no tempo event before " ++ show bts ++ " beats"
-      Just ((bts', (secs, bps)), _) ->
-        secs + (bts - bts') / bps
+      Just ((bts', (secs, bps)), _) -> secs + (bts - bts') / bps
 
-makeMeasure :: Beats -> (Int, Beats) -> Beats -> Map.Map Beats Line
-makeMeasure start (mult, unit) dvn = let
+makeMeasure :: Beats -> Beats -> (Int, Beats) -> Map.Map Beats Line
+makeMeasure dvn start (mult, unit) = let
   len = fromIntegral mult * unit
   end = start + len
   subbeats = Map.fromDistinctAscList $ map (, SubBeat) $
@@ -102,8 +103,7 @@ makeLines :: Prog ()
 makeLines = do
   msrs <- fmap Map.toAscList $ gets vMeasures
   dvn <- gets vDivision
-  let btLns =
-        concatMap (\(bts, msr) -> Map.toAscList $ makeMeasure bts msr dvn) msrs
+  let btLns = concatMap (Map.toAscList . uncurry (makeMeasure dvn)) msrs
   secLns <- mapM (runKleisli $ first $ Kleisli beatsToSeconds) btLns
   modify $ \prog -> prog { vLines = Map.fromDistinctAscList secLns }
 
