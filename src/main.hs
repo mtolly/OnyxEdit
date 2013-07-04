@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module Main where
 
 import Graphics.UI.SDL
@@ -57,6 +58,7 @@ data Program = Program
   , vTempos     :: Map.Map Seconds (Beats, BPS)
   , vTemposRev  :: Map.Map Beats (Seconds, BPS)
   , vMeasures   :: Map.Map Beats (Int, Beats)
+  , vDivision   :: Beats
   , vLines      :: Map.Map Seconds Line
   } deriving (Eq, Ord, Show)
 
@@ -82,13 +84,24 @@ beatsToSeconds bts = do
       Just ((bts', (secs, bps)), _) ->
         secs + (bts - bts') / bps
 
--- TODO: add Beat and SubBeat lines
+makeMeasure :: Beats -> (Int, Beats) -> Beats -> Map.Map Beats Line
+makeMeasure start (mult, unit) dvn = let
+  len = fromIntegral mult * unit
+  end = start + len
+  subbeats = Map.fromDistinctAscList $ map (, SubBeat) $
+    takeWhile (< end) [start, start + dvn ..]
+  beats    = Map.fromDistinctAscList $ map (, Beat) $
+    takeWhile (< end) [start, start + unit ..]
+  measure = Map.singleton start Measure
+  in measure `Map.union` beats `Map.union` subbeats
+
 makeLines :: Prog ()
 makeLines = do
-  bts <- fmap Map.keys $ gets vMeasures
-  secs <- mapM beatsToSeconds bts
-  modify $ \prog ->
-    prog { vLines = Map.fromDistinctAscList $ zip secs $ repeat Measure }
+  msrs <- fmap Map.toAscList $ gets vMeasures
+  dvn <- gets vDivision
+  let btLns = concatMap (\(bts, msr) -> Map.toAscList $ makeMeasure bts msr dvn) msrs
+  secLns <- mapM (\(bts, ln) -> fmap (, ln) $ beatsToSeconds bts) btLns
+  modify $ \prog -> prog { vLines = Map.fromDistinctAscList secLns }
 
 data Surfaces = Surfaces
   { vScreen      :: Surface
@@ -274,6 +287,7 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vTempos = Map.fromList [(0, (0, 2))]
         , vTemposRev = Map.fromList [(0, (0, 2))]
         , vMeasures = Map.fromList [(0, (3, 1)), (3, (3, 1))]
+        , vDivision = 1/4
         , vLines = undefined
         }
   evalStateT (makeLines >> draw >> inputLoop) prog
@@ -311,12 +325,24 @@ inputLoop' b = liftIO pollEvent >>= \evt -> case evt of
     updateSpeed
     inputLoop
   MouseButtonDown _ _ ButtonWheelDown -> if b then inputLoop else do
-    modify $ \prog -> prog { vPosition = fromInteger (floor ((vPosition prog * 4) + 1)) / 4 }
-    draw
+    pos <- gets vPosition
+    lns <- gets vLines
+    case Map.splitLookup pos lns of
+      (_, _, gt) -> case Map.minViewWithKey gt of
+        Just ((k, _), _) -> do
+          modify $ \prog -> prog { vPosition = k }
+          draw
+        Nothing -> return ()
     inputLoop
   MouseButtonDown _ _ ButtonWheelUp -> if b then inputLoop else do
-    modify $ \prog -> prog { vPosition = max 0 $ fromInteger (ceiling ((vPosition prog * 4) - 1)) / 4 }
-    draw
+    pos <- gets vPosition
+    lns <- gets vLines
+    case Map.splitLookup pos lns of
+      (lt, _, _) -> case Map.maxViewWithKey lt of
+        Just ((k, _), _) -> do
+          modify $ \prog -> prog { vPosition = k }
+          draw
+        Nothing -> return ()
     inputLoop
   KeyDown (Keysym SDLK_1 _ _) -> unless b (toggleDrum Kick >> draw) >> inputLoop
   KeyDown (Keysym SDLK_2 _ _) -> unless b (toggleDrum Snare >> draw) >> inputLoop
