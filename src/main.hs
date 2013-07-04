@@ -144,7 +144,6 @@ playUpdate = gets vPlaying >>= \b -> when b $ do
   t <- liftIO $ Sound.ALUT.get $ secOffset dl
   a <- gets $ vAudioStart . vSources
   modify $ \prog -> prog { vPosition = realToFrac $ t - a }
-  draw
 
 timeToX :: Seconds -> Prog Int
 timeToX pos = do
@@ -217,6 +216,19 @@ kitchen = Map.fromList $ map (\(sec, st) -> (sec / 2, st))
   , (4.5, Set.fromList [Snare])
   , (5  , Set.fromList [RideB])
   , (5.5, Set.fromList [HihatO])
+  , (6  , Set.fromList [Kick, HihatF, RideB])
+  , (6.5, Set.fromList [HihatC])
+  , (7  , Set.fromList [RideB])
+  , (7.5, Set.fromList [Snare])
+  , (8  , Set.fromList [RideB])
+  , (8.5, Set.fromList [HihatO])
+  , (9  , Set.fromList [Kick, HihatF, RideB])
+  , (9.5, Set.fromList [HihatC])
+  , (10  , Set.fromList [RideB])
+  , (10.5, Set.fromList [Kick])
+  , (11  , Set.fromList [Snare])
+  , (11.5, Set.fromList [Snare])
+  , (12  , Set.fromList [Kick, CrashG])
   ]
 
 drawBG :: Prog ()
@@ -286,7 +298,7 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vPlaySpeed = 1
         , vTempos = Map.fromList [(0, (0, 2))]
         , vTemposRev = Map.fromList [(0, (0, 2))]
-        , vMeasures = Map.fromList [(0, (3, 1)), (3, (3, 1))]
+        , vMeasures = Map.fromList [(0, (3, 1)), (3, (3, 1)), (6, (3, 1)), (9, (3, 1)), (12, (3, 1))]
         , vDivision = 1/4
         , vLines = undefined
         }
@@ -319,16 +331,15 @@ inputLoop :: Prog ()
 inputLoop = do
   liftIO $ delay 5
   playUpdate
+  draw
   b <- gets vPlaying
   evt <- liftIO pollEvent
   case evt of
     Quit -> liftIO exitSuccess
     KeyDown (Keysym SDLK_UP _ _) -> do
       modify $ \prog -> prog { vResolution = vResolution prog + 20 }
-      draw
     KeyDown (Keysym SDLK_DOWN _ _) -> do
       modify $ \prog -> prog { vResolution = max 20 $ vResolution prog - 20 }
-      draw
     KeyDown (Keysym SDLK_LEFT _ _) -> do
       spd <- gets vPlaySpeed
       setSpeed $ max 0.1 $ spd - 0.1
@@ -341,11 +352,11 @@ inputLoop = do
       if b
         then case Map.splitLookup pos lns of
           (_, _, gt) -> case reverse $ take 2 $ Map.toAscList gt of
-            (k, _) : _ -> setPosition k >> draw
+            (k, _) : _ -> setPosition k
             []         -> return ()
         else case Map.splitLookup pos lns of
           (_, _, gt) -> case Map.minViewWithKey gt of
-            Just ((k, _), _) -> setPosition k >> draw
+            Just ((k, _), _) -> setPosition k
             Nothing          -> return ()
     MouseButtonDown _ _ ButtonWheelUp -> do
       pos <- gets vPosition
@@ -353,14 +364,14 @@ inputLoop = do
       if b
         then case Map.splitLookup pos lns of
           (lt, _, _) -> case reverse $ take 3 $ Map.toDescList lt of
-            (k, _) : _ -> setPosition k >> draw
+            (k, _) : _ -> setPosition k
             []         -> return ()
         else case Map.splitLookup pos lns of
           (lt, _, _) -> case Map.maxViewWithKey lt of
-            Just ((k, _), _) -> setPosition k >> draw
+            Just ((k, _), _) -> setPosition k
             Nothing          -> return ()
-    KeyDown (Keysym SDLK_1 _ _) -> unless b $ toggleDrum Kick >> draw
-    KeyDown (Keysym SDLK_2 _ _) -> unless b $ toggleDrum Snare >> draw
+    KeyDown (Keysym SDLK_1 _ _) -> unless b $ toggleDrum Kick
+    KeyDown (Keysym SDLK_2 _ _) -> unless b $ toggleDrum Snare
     KeyDown (Keysym SDLK_SPACE _ _) -> if b
       then do
         modify $ \prog -> prog { vPlaying = False }
@@ -384,7 +395,6 @@ inputLoop = do
         liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
     KeyDown (Keysym SDLK_z _ _) -> do
       setPosition 0
-      draw
     _    -> return ()
   inputLoop
 
