@@ -12,6 +12,7 @@ import qualified Data.Set as Set
 import Control.Monad (void, forM_, zipWithM_, when, unless)
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
+import Control.Arrow
 
 import System.Exit
 
@@ -101,8 +102,9 @@ makeLines :: Prog ()
 makeLines = do
   msrs <- fmap Map.toAscList $ gets vMeasures
   dvn <- gets vDivision
-  let btLns = concatMap (\(bts, msr) -> Map.toAscList $ makeMeasure bts msr dvn) msrs
-  secLns <- mapM (\(bts, ln) -> fmap (, ln) $ beatsToSeconds bts) btLns
+  let btLns =
+        concatMap (\(bts, msr) -> Map.toAscList $ makeMeasure bts msr dvn) msrs
+  secLns <- mapM (runKleisli $ first $ Kleisli beatsToSeconds) btLns
   modify $ \prog -> prog { vLines = Map.fromDistinctAscList secLns }
 
 data Surfaces = Surfaces
@@ -199,7 +201,8 @@ drawNotes = do
       maybe (return ()) (mapM_ (drawNote now) . Set.toList) eq
       drawMore gt
   where
-    drawLess mp = mapM_ (\(pos, nts) -> mapM_ (drawNote pos) $ Set.toList nts) $ Map.toList mp
+    drawLess mp = mapM_ (\(pos, nts) -> mapM_ (drawNote pos) $ Set.toList nts) $
+      Map.toList mp
     drawMore = drawLess
 
 kitchen :: Map.Map Seconds (Set.Set Note)
@@ -298,7 +301,8 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vPlaySpeed = 1
         , vTempos = Map.fromList [(0, (0, 2))]
         , vTemposRev = Map.fromList [(0, (0, 2))]
-        , vMeasures = Map.fromList [(0, (3, 1)), (3, (3, 1)), (6, (3, 1)), (9, (3, 1)), (12, (3, 1))]
+        , vMeasures = Map.fromList
+          [(0, (3, 1)), (3, (3, 1)), (6, (3, 1)), (9, (3, 1)), (12, (3, 1))]
         , vDivision = 1/4
         , vLines = undefined
         }
