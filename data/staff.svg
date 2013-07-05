@@ -1,0 +1,12 @@
+<svg height='125' version='1.1' width='1000' xmlns='http://www.w3.org/2000/svg'>
+  <style>
+    .staff {
+      stroke-width: 2;
+      stroke: black; }
+  </style>
+  <line class='staff' x1='0' x2='1000' y1='12.5' y2='12.5'></line>
+  <line class='staff' x1='0' x2='1000' y1='37.5' y2='37.5'></line>
+  <line class='staff' x1='0' x2='1000' y1='62.5' y2='62.5'></line>
+  <line class='staff' x1='0' x2='1000' y1='87.5' y2='87.5'></line>
+  <line class='staff' x1='0' x2='1000' y1='112.5' y2='112.5'></line>
+</svg>

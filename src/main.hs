@@ -23,6 +23,14 @@ import Paths_OnyxEdit
 data Note
   = Kick
   | Snare
+  | SnareFlam -- ^ Red/yellow, a double hit on snare
+  | TomY -- ^ Yellow
+  | TomB -- ^ Blue
+  | TomG -- ^ Green
+  | HighFlamY -- ^ Yellow/blue, a double hit on high tom
+  | HighFlamB -- ^ Yellow/blue, a double hit on mid tom
+  | LowFlamB  -- ^ Blue/green, a double hit on mid tom
+  | LowFlamG  -- ^ Blue/green, a double hit on low tom
   | HihatF -- ^ Foot
   | HihatC -- ^ Closed
   | HihatO -- ^ Open
@@ -34,17 +42,26 @@ data Note
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 noteSprite :: Note -> (Int, Int)
-noteSprite n = case n of
-  Kick   -> (0  , 0  )
-  HihatF -> (120, 60 )
-  Snare  -> (0  , 30 )
-  HihatC -> (60 , 60 )
-  HihatO -> (90 , 60 )
-  RideB  -> (60 , 90 )
-  RideG  -> (60 , 120)
-  CrashY -> (30 , 60 )
-  CrashB -> (30 , 90 )
-  CrashG -> (30 , 120)
+noteSprite n = (30 * x, 0) where
+  x = case n of
+    Kick -> 0
+    Snare -> 1
+    SnareFlam -> 20
+    TomY -> 2
+    TomB -> 3 
+    TomG -> 4
+    HighFlamY -> 21
+    HighFlamB -> 22
+    LowFlamB -> 23
+    LowFlamG -> 24
+    HihatF -> 19
+    HihatC -> 8
+    HihatO -> 11
+    RideB -> 9
+    RideG -> 10
+    CrashY -> 5
+    CrashB -> 6
+    CrashG -> 7
 
 type Seconds = Rational
 type Beats   = Rational
@@ -111,13 +128,12 @@ makeLines = do
   modify $ \prog -> prog { vLines = Map.fromDistinctAscList secLns }
 
 data Surfaces = Surfaces
-  { vScreen      :: Surface
-  , vNoteSheet   :: Surface
-  , vBackground  :: Surface
-  , vStaff       :: Surface
-  , vMeasureLine :: Surface
-  , vBeatLine    :: Surface
-  , vSubBeatLine :: Surface
+  { vScreen     :: Surface
+  , vNoteSheet  :: Surface
+  , vBackground :: Surface
+  , vStaff      :: Surface
+  , vBeatLines  :: Surface
+  , vNowLine    :: Surface
   } deriving (Eq, Ord, Show)
 
 data Sources = Sources
@@ -186,18 +202,15 @@ noteToY n = 290 - 25 * case n of
 
 drawLine :: Seconds -> Line -> Prog ()
 drawLine pos l = void $ do
-  x <- fmap (subtract 1) $ timeToX pos
+  x <- timeToX pos
   scrn <- gets $ vScreen . vSurfaces
-  case l of
-    Measure -> do
-      s <- gets $ vMeasureLine . vSurfaces
-      liftIO $ apply x 189 s scrn
-    Beat -> do
-      s <- gets $ vBeatLine . vSurfaces
-      liftIO $ apply x 189 s scrn
-    SubBeat -> do
-      s <- gets $ vSubBeatLine . vSurfaces
-      liftIO $ apply x 214 s scrn
+  surf <- gets $ vBeatLines . vSurfaces
+  let clip = Just $ case l of
+        Measure -> Rect 0 0 30 125
+        Beat    -> Rect 30 0 30 125
+        SubBeat -> Rect 60 0 30 125
+      drawAt = Just $ Rect (x - 15) 100 0 0
+  liftIO $ blitSurface surf clip scrn drawAt
 
 drawNote :: Seconds -> Note -> Prog ()
 drawNote pos note = void $ do
@@ -205,8 +218,8 @@ drawNote pos note = void $ do
   scrn <- gets $ vScreen . vSurfaces
   x <- timeToX pos
   let (clipX, clipY) = noteSprite note
-      clip = Just $ Rect clipX clipY 30 30
-      drawAt = Just $ Rect (x - 15) (noteToY note - 15) 0 0
+      clip = Just $ Rect clipX clipY 30 125
+      drawAt = Just $ Rect (x - 15) 100 0 0
   liftIO $ blitSurface surf clip scrn drawAt
 
 drawNotes :: Prog ()
@@ -264,8 +277,10 @@ drawLines = gets vLines >>= mapM_ (uncurry drawLine) . Map.toList
 drawStaff :: Prog ()
 drawStaff = void $ do
   scrn <- gets $ vScreen . vSurfaces
+  now <- gets $ vNowLine . vSurfaces
   stf  <- gets $ vStaff . vSurfaces
-  liftIO $ apply 0 0 stf scrn
+  liftIO $ apply 0 100 stf scrn
+  liftIO $ apply (150 - 15) 0 now scrn
 
 draw :: Prog ()
 draw = do
@@ -280,12 +295,11 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
 
   -- Get screen, load sprites
   scrn       <- setVideoMode 1000 480 32 [SWSurface]
-  gemSheet   <- getDataFileName "gems.png" >>= loadImage
-  bgImage    <- getDataFileName "bg.png" >>= loadImage
+  gemSheet   <- getDataFileName "gems.png"  >>= loadImage
+  bgImage    <- getDataFileName "bg.png"    >>= loadImage
   staffImage <- getDataFileName "staff.png" >>= loadImage
-  measure    <- getDataFileName "measure.png" >>= loadImage
-  beat       <- getDataFileName "beat.png" >>= loadImage
-  subbeat    <- getDataFileName "subbeat.png" >>= loadImage
+  beat       <- getDataFileName "beat.png"  >>= loadImage
+  now        <- getDataFileName "now.png"   >>= loadImage
 
   -- Load audio
   srcs@[srcDrumL, srcDrumR, srcSongL, srcSongR] <- genObjectNames 4
@@ -303,9 +317,8 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vNoteSheet = gemSheet
         , vBackground = bgImage
         , vStaff = staffImage
-        , vMeasureLine = measure
-        , vBeatLine = beat
-        , vSubBeatLine = subbeat
+        , vBeatLines = beat
+        , vNowLine = now
         }
       sources = Sources
         { vAudioStart = 39.726
