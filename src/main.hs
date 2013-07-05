@@ -155,11 +155,6 @@ apply :: Int -> Int -> Surface -> Surface -> IO Bool
 apply x y src dst = blitSurface src Nothing dst (Just offset)
   where offset = Rect { rectX = x, rectY = y, rectW = 0, rectH = 0 }
 
-applyCenter :: Int -> Int -> Surface -> Surface -> IO Bool
-applyCenter x y src dst = do
-  Rect _ _ w h <- getClipRect src
-  apply (x - div w 2) (y - div h 2) src dst
-
 playUpdate :: Prog ()
 playUpdate = gets vPlaying >>= \b -> when b $ do
   pos <- gets vPosition
@@ -186,19 +181,6 @@ timeToX pos = do
   now <- gets vPosition
   pps <- gets vResolution
   return $ 150 + floor ((pos - now) * fromIntegral pps)
-
-noteToY :: Note -> Int
-noteToY n = 290 - 25 * case n of
-  Kick   -> 0
-  HihatF -> 0
-  Snare  -> 1
-  HihatC -> 2
-  HihatO -> 2
-  RideB  -> 3
-  RideG  -> 4
-  CrashY -> 2
-  CrashB -> 3
-  CrashG -> 4
 
 drawLine :: Seconds -> Line -> Prog ()
 drawLine pos l = void $ do
@@ -275,12 +257,12 @@ drawLines :: Prog ()
 drawLines = gets vLines >>= mapM_ (uncurry drawLine) . Map.toList
 
 drawStaff :: Prog ()
-drawStaff = void $ do
+drawStaff = do
   scrn <- gets $ vScreen . vSurfaces
   now <- gets $ vNowLine . vSurfaces
   stf  <- gets $ vStaff . vSurfaces
-  liftIO $ apply 0 100 stf scrn
-  liftIO $ apply (150 - 15) 0 now scrn
+  void $ liftIO $ apply 0 100 stf scrn
+  void $ liftIO $ apply (150 - 15) 0 now scrn
 
 draw :: Prog ()
 draw = do
