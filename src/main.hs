@@ -9,6 +9,8 @@ import Sound.ALUT
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+import Data.Ratio
+
 import Control.Monad (void, forM_, zipWithM_, when, unless)
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
@@ -416,6 +418,20 @@ inputLoop = do
     KeyDown (Keysym SDLK_z _ _) -> setPosition 0
     KeyDown (Keysym SDLK_m _ _) ->
       modify $ \prog -> prog { vMetronome = not $ vMetronome prog }
+    KeyDown (Keysym SDLK_q _ _) -> do
+      dvn <- gets vDivision
+      case (numerator dvn, denominator dvn) of
+        (1, d) -> do
+          modify $ \prog -> prog { vDivision = 1 % (d + 1) }
+          makeLines
+        _      -> return ()
+    KeyDown (Keysym SDLK_a _ _) -> do
+      dvn <- gets vDivision
+      case (numerator dvn, denominator dvn) of
+        (1, d) | d >= 2 -> do
+          modify $ \prog -> prog { vDivision = 1 % (d - 1) }
+          makeLines
+        _               -> return ()
     _    -> return ()
   inputLoop
 
