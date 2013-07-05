@@ -66,6 +66,7 @@ data Program = Program
   , vDivision   :: Beats
   -- ^ The fraction of a beat that creates sub-beat lines.
   , vLines      :: Map.Map Seconds Line
+  , vMetronome  :: Bool
   } deriving (Eq, Ord, Show)
 
 secondsToBeats :: Seconds -> Prog Beats
@@ -150,7 +151,8 @@ playUpdate = gets vPlaying >>= \b -> when b $ do
   a <- gets $ vAudioStart . vSources
   let pos' = realToFrac $ t - a
   modify $ \prog -> prog { vPosition = pos' }
-  when (pos' > pos) $ case Map.splitLookup pos lns of
+  met <- gets vMetronome
+  when (pos' > pos && met) $ case Map.splitLookup pos lns of
     (_, eq, gt) -> case Map.splitLookup pos' gt of
       (lt, _, _) -> let
         startBeat = elem eq [Just Measure, Just Beat]
@@ -323,7 +325,8 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vMeasures = Map.fromList
           [(0, (3, 1)), (3, (3, 1)), (6, (3, 1)), (9, (3, 1)), (12, (3, 1))]
         , vDivision = 1/4
-        , vLines = undefined
+        , vLines = undefined -- generated with makeLines
+        , vMetronome = False
         }
   evalStateT (setPosition 0 >> makeLines >> draw >> inputLoop) prog
 
@@ -412,6 +415,8 @@ inputLoop = do
       forM_ [srcSongL, srcSongR] $ \src ->
         liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
     KeyDown (Keysym SDLK_z _ _) -> setPosition 0
+    KeyDown (Keysym SDLK_m _ _) ->
+      modify $ \prog -> prog { vMetronome = not $ vMetronome prog }
     _    -> return ()
   inputLoop
 
