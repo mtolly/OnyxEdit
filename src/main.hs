@@ -1,5 +1,5 @@
 {-# LANGUAGE TupleSections #-}
-module Main where
+module Main (main) where
 
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Image
@@ -163,7 +163,6 @@ playUpdate = gets vPlaying >>= \b -> when b $ do
           liftIO $ secOffset clk $= 0
           liftIO $ play [clk]
 
-
 timeToX :: Seconds -> Prog Int
 timeToX pos = do
   now <- gets vPosition
@@ -172,13 +171,13 @@ timeToX pos = do
 
 noteToY :: Note -> Int
 noteToY n = 290 - 25 * case n of
-  Kick -> 0
+  Kick   -> 0
   HihatF -> 0
-  Snare -> 1
+  Snare  -> 1
   HihatC -> 2
   HihatO -> 2
-  RideB -> 3
-  RideG -> 4
+  RideB  -> 3
+  RideG  -> 4
   CrashY -> 2
   CrashB -> 3
   CrashG -> 4
