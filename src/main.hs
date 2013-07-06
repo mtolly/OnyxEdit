@@ -435,7 +435,8 @@ toggleDrum n = do
   now <- gets vPosition
   modify $ \prog -> prog { vDrumChart = Map.alter f now $ vDrumChart prog }
   where f Nothing = Just $ Set.singleton n
-        f (Just notes) = case (Set.lookupIndex n notes, Set.size notes) of
-          (Just 0, 0) -> Nothing
-          (Just i, _) -> Just $ Set.deleteAt i notes
-          (Nothing, _) -> Just $ Set.insert n notes
+        f (Just notes) = if Set.member n notes
+          then if Set.size notes == 1
+            then Nothing
+            else Just $ Set.delete n notes
+          else Just $ Set.insert n notes

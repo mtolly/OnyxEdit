@@ -17,6 +17,7 @@ Executable onyxedit
                     , ALUT
                     , SDL-image
                     , SDL
+                    , midi
   Main-Is:          main.hs
   Hs-Source-Dirs:   src
   Other-Modules:    Paths_OnyxEdit
