@@ -519,7 +519,6 @@ toggleDrum n = do
             else Just $ Set.delete n notes
           else Just $ Set.insert n notes
 
-{-
 loadMIDI :: File.T -> Prog ()
 loadMIDI f = case MIDI.readFile f of
   Nothing -> error "Invalid MIDI file"
@@ -528,5 +527,9 @@ loadMIDI f = case MIDI.readFile f of
     rtbTempos = Status.toRTB' $ MIDI.tempoTrack fBeats
     mapTempos = fmap realToFrac $ Map.mapKeysMonotonic realToFrac $
       Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 rtbTempos
-    in undefined
--}
+    mapPosTempos = positionTempos mapTempos
+    rtbDrums = lookup (Just "PART_DRUMS") $ MIDI.tracks fBeats
+    in do
+      modify $ \prog -> prog { vTracks = (vTracks prog)
+        { vTempos = mapPosTempos
+        } }
