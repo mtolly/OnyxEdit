@@ -1,7 +1,8 @@
 {-# LANGUAGE TupleSections #-}
 module Main (main) where
 
-import Graphics.UI.SDL
+import Graphics.UI.SDL hiding (flip)
+import qualified Graphics.UI.SDL as SDL
 import Graphics.UI.SDL.Image
 
 import Sound.ALUT
@@ -10,6 +11,12 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 import Data.Ratio
+
+import qualified Sound.MIDI.File as File
+import qualified Data.Rhythm.MIDI as MIDI
+import qualified Data.Rhythm.Status as Status
+import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.EventList.Absolute.TimeBody as ATB
 
 import Control.Monad (void, forM_, zipWithM_, when, unless)
 import Control.Monad.Trans.State
@@ -88,25 +95,29 @@ data Program = Program
   , vMetronome  :: Bool
   } deriving (Eq, Ord, Show)
 
+secondsToBeats' :: Map.Map Seconds (Beats, BPS) -> Seconds -> Maybe Beats
+secondsToBeats' tmps secs = flip fmap (Map.lookupLE secs tmps) $
+  \(secs', (bts, bps)) -> bts + (secs - secs') * bps
+
 secondsToBeats :: Seconds -> Prog Beats
 secondsToBeats secs = do
   tmps <- gets vTempos
-  return $ case Map.splitLookup secs tmps of
-    (_, Just (bts, _), _) -> bts
-    (lt, Nothing, _) -> case Map.maxViewWithKey lt of
-      Nothing -> error $
-        "secondsToBeats: no tempo event before " ++ show secs ++ " seconds"
-      Just ((secs', (bts, bps)), _) -> bts + (secs - secs') * bps
+  case secondsToBeats' tmps secs of
+    Nothing -> error $
+      "secondsToBeats: no tempo event before " ++ show secs ++ " seconds"
+    Just bts -> return bts
+
+beatsToSeconds' :: Map.Map Beats (Seconds, BPS) -> Beats -> Maybe Seconds
+beatsToSeconds' tmps bts = flip fmap (Map.lookupLE bts tmps) $
+  \(bts', (secs, bps)) -> secs + (bts - bts') / bps
 
 beatsToSeconds :: Beats -> Prog Seconds
 beatsToSeconds bts = do
   tmps <- gets vTemposRev
-  return $ case Map.splitLookup bts tmps of
-    (_, Just (secs, _), _) -> secs
-    (lt, Nothing, _) -> case Map.maxViewWithKey lt of
-      Nothing -> error $
-        "beatsToSeconds: no tempo event before " ++ show bts ++ " beats"
-      Just ((bts', (secs, bps)), _) -> secs + (bts - bts') / bps
+  case beatsToSeconds' tmps bts of
+    Nothing -> error $
+      "beatsToSeconds: no tempo event before " ++ show bts ++ " beats"
+    Just secs -> return secs
 
 makeMeasure :: Beats -> Beats -> (Int, Beats) -> Map.Map Beats Line
 makeMeasure dvn start (mult, unit) = let
@@ -267,7 +278,7 @@ drawStaff = do
 draw :: Prog ()
 draw = do
   drawBG >> drawLines >> drawStaff >> drawNotes
-  gets (vScreen . vSurfaces) >>= liftIO . Graphics.UI.SDL.flip
+  gets (vScreen . vSurfaces) >>= liftIO . SDL.flip
 
 loadSource :: FilePath -> Source -> IO ()
 loadSource f src = createBuffer (File f) >>= \buf -> buffer src $= Just buf
@@ -440,3 +451,17 @@ toggleDrum n = do
             then Nothing
             else Just $ Set.delete n notes
           else Just $ Set.insert n notes
+
+loadTempos :: Map.Map Beats BPS -> Prog ()
+loadTempos = undefined
+
+loadMIDI :: File.T -> Prog ()
+loadMIDI f = case MIDI.readFile f of
+  Nothing -> error "Invalid MIDI file"
+  Just fTicks -> let
+    fBeats = MIDI.fromTickFile fTicks
+    rtbTempos = Status.toRTB' $ MIDI.tempoTrack fBeats
+    mapTempos = fmap realToFrac $ Map.mapKeysMonotonic realToFrac $
+      Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 rtbTempos
+    in do
+      loadTempos mapTempos
