@@ -18,7 +18,7 @@ import qualified Data.Rhythm.Status as Status
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
 
-import Control.Monad (void, forM_, zipWithM_, when, unless)
+import Control.Monad (void, forM, forM_, zipWithM_, when, unless)
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
 import Control.Arrow
@@ -115,7 +115,7 @@ positionTempos = Map.fromDistinctAscList . f 0 0 2 . Map.toAscList where
     [] -> []
     (bts', bps') : xs' -> let
       secs' = secs + (bts' - bts) / bps
-      in (Both secs' bts', bts') : f bts' secs' bps' xs'
+      in (Both secs' bts', bps') : f bts' secs' bps' xs'
 
 positionTrack :: Map.Map Position BPS -> Map.Map Beats a -> Map.Map Position a
 positionTrack tmps = Map.mapKeysMonotonic $
@@ -174,15 +174,14 @@ makeMeasure dvn start (mult, unit) = let
   in measure `Map.union` beats `Map.union` subbeats
 
 makeLines :: Prog ()
-makeLines = return ()
-{-
 makeLines = do
-  msrs <- fmap Map.toAscList $ gets vMeasures
+  msrs <- fmap Map.toAscList $ gets $ vMeasures . vTracks
   dvn <- gets vDivision
-  let btLns = concatMap (Map.toAscList . uncurry (makeMeasure dvn)) msrs
-  secLns <- mapM (runKleisli $ first $ Kleisli beatsToSeconds) btLns
-  modify $ \prog -> prog { vLines = Map.fromDistinctAscList secLns }
--}
+  let btLns = concatMap (Map.toAscList . uncurry (makeMeasure dvn . toBeats)) msrs
+  posLns <- forM btLns $ runKleisli $ first $ Kleisli $
+    \bts -> beatsToSeconds bts >>= \secs -> return $ Both secs bts
+  modify $ \prog ->
+    prog { vTracks = (vTracks prog) { vLines = Map.fromDistinctAscList posLns } }
 
 data Surfaces = Surfaces
   { vScreen     :: Surface
@@ -370,7 +369,10 @@ main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -
         , vSongAudio = (srcSongL, srcSongR)
         , vClick = srcClick
         }
-      tmps = Map.singleton (Both 0 0) 2
+      tmps = positionTempos $ Map.fromList
+        [ (0, 121.37 / 60)
+        , (6, 120.91 / 60)
+        ]
       tracks = Tracks
         { vTempos = tmps
         , vDrums = positionTrack tmps kitchen
@@ -505,18 +507,17 @@ inputLoop = do
   inputLoop
 
 toggleDrum :: Note -> Prog ()
-toggleDrum _ = return ()
-{-
 toggleDrum n = do
   now <- gets vPosition
-  modify $ \prog -> prog { vDrumChart = Map.alter f now $ vDrumChart prog }
+  drms <- gets $ vDrums . vTracks
+  let drms' = Map.alter f now drms
+  modify $ \prog -> prog { vTracks = (vTracks prog) { vDrums = drms' } }
   where f Nothing = Just $ Set.singleton n
         f (Just notes) = if Set.member n notes
           then if Set.size notes == 1
             then Nothing
             else Just $ Set.delete n notes
           else Just $ Set.insert n notes
--}
 
 {-
 loadMIDI :: File.T -> Prog ()
