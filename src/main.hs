@@ -74,6 +74,30 @@ type Seconds = Rational
 type Beats   = Rational
 type BPS     = Rational
 
+-- | A position expressed in either real time or musical time.
+data Position
+  = Both Seconds Beats
+  | Seconds Seconds
+  | Beats Beats
+  deriving (Show, Read)
+
+-- | Comparing two positions will either compare their Seconds values, or their
+-- Beats values, depending on which is present. Comparing a Seconds to a Beats
+-- will raise an error.
+instance Ord Position where
+  compare (Both  s _) (Both  s' _) = compare s s' -- arbitrary
+  compare (Both  s _) (Seconds s') = compare s s'
+  compare (Both  _ b) (Beats   b') = compare b b'
+  compare (Seconds s) (Both  s' _) = compare s s'
+  compare (Seconds s) (Seconds s') = compare s s'
+  compare (Seconds _) (Beats    _) = error "compare: can't compare Seconds and Beats"
+  compare (Beats   b) (Both  _ b') = compare b b'
+  compare (Beats   _) (Seconds  _) = error "compare: can't compare Seconds and Beats"
+  compare (Beats   b) (Beats   b') = compare b b'
+
+instance Eq Position where
+  x == y = compare x y == EQ
+
 data Program = Program
   { vSurfaces   :: Surfaces
   , vSources    :: Sources
