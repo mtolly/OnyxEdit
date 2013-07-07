@@ -22,53 +22,53 @@ import Control.Monad (void, forM, forM_, zipWithM_, when, unless)
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
 import Control.Arrow
+import Data.Maybe (fromMaybe)
 
 import System.Exit
 
 import Paths_OnyxEdit
 
 data Note
-  = Kick
-  | Snare
+  = Kick Hit
+  | Snare Hit
   | SnareFlam -- ^ Red/yellow, a double hit on snare
-  | TomY -- ^ Yellow
-  | TomB -- ^ Blue
-  | TomG -- ^ Green
-  | HighFlamY -- ^ Yellow/blue, a double hit on high tom
-  | HighFlamB -- ^ Yellow/blue, a double hit on mid tom
-  | LowFlamB  -- ^ Blue/green, a double hit on mid tom
-  | LowFlamG  -- ^ Blue/green, a double hit on low tom
-  | HihatF -- ^ Foot
-  | HihatC -- ^ Closed
-  | HihatO -- ^ Open
-  | RideB  -- ^ Blue
-  | RideG  -- ^ Green
-  | CrashY -- ^ Yellow
-  | CrashB -- ^ Blue
-  | CrashG -- ^ Green
+  | Tom YBG Hit
+  | HihatF     -- ^ Foot
+  | HihatC YBG -- ^ Closed
+  | HihatO YBG -- ^ Open
+  | Ride   YBG
+  | Crash  YBG
+  deriving (Eq, Ord, Show, Read)
+
+data Hit = Normal | Ghost
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data YBG = Yellow | Blue | Green
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 noteSprite :: Note -> (Int, Int)
 noteSprite n = (30 * x, 0) where
   x = case n of
-    Kick -> 0
-    Snare -> 1
+    Kick Normal -> 0
+    Snare Normal -> 1
     SnareFlam -> 20
-    TomY -> 2
-    TomB -> 3 
-    TomG -> 4
-    HighFlamY -> 21
-    HighFlamB -> 22
-    LowFlamB -> 23
-    LowFlamG -> 24
+    Tom Yellow Normal -> 2
+    Tom Blue Normal -> 3 
+    Tom Green Normal -> 4
     HihatF -> 19
-    HihatC -> 8
-    HihatO -> 11
-    RideB -> 9
-    RideG -> 10
-    CrashY -> 5
-    CrashB -> 6
-    CrashG -> 7
+    HihatC Yellow -> 8
+    HihatO Yellow -> 11
+    Ride Blue -> 9
+    Ride Green -> 10
+    Crash Yellow -> 5
+    Crash Blue -> 6
+    Crash Green -> 7
+    Kick Ghost -> 14
+    Snare Ghost -> 15
+    Tom Yellow Ghost -> 16
+    Tom Blue Ghost -> 17
+    Tom Green Ghost -> 18
+    _ -> error $ "noteSprite: unhandled note " ++ show n
 
 type Seconds = Rational
 type Beats   = Rational
@@ -278,31 +278,31 @@ drawNotes = do
 
 kitchen :: Map.Map Beats (Set.Set Note)
 kitchen = Map.fromList
-  [ (0  , Set.fromList [Kick, CrashG])
+  [ (0  , Set.fromList [Kick Normal, Crash Green])
   , (0.5, Set.fromList [HihatF])
-  , (1  , Set.fromList [RideB])
-  , (1.5, Set.fromList [Snare])
-  , (2  , Set.fromList [RideB])
-  , (2.5, Set.fromList [HihatO])
-  , (3  , Set.fromList [Kick, HihatF, RideB])
-  , (3.5, Set.fromList [HihatC])
-  , (4  , Set.fromList [RideB])
-  , (4.5, Set.fromList [Snare])
-  , (5  , Set.fromList [RideB])
-  , (5.5, Set.fromList [HihatO])
-  , (6  , Set.fromList [Kick, HihatF, RideB])
-  , (6.5, Set.fromList [HihatC])
-  , (7  , Set.fromList [RideB])
-  , (7.5, Set.fromList [Snare])
-  , (8  , Set.fromList [RideB])
-  , (8.5, Set.fromList [HihatO])
-  , (9  , Set.fromList [Kick, HihatF, RideB])
-  , (9.5, Set.fromList [HihatC])
-  , (10  , Set.fromList [RideB])
-  , (10.5, Set.fromList [Kick])
-  , (11  , Set.fromList [Snare])
-  , (11.5, Set.fromList [Snare])
-  , (12  , Set.fromList [Kick, CrashG])
+  , (1  , Set.fromList [Ride Blue])
+  , (1.5, Set.fromList [Snare Normal])
+  , (2  , Set.fromList [Ride Blue])
+  , (2.5, Set.fromList [HihatO Yellow])
+  , (3  , Set.fromList [Kick Normal, HihatF, Ride Blue])
+  , (3.5, Set.fromList [HihatC Yellow])
+  , (4  , Set.fromList [Ride Blue])
+  , (4.5, Set.fromList [Snare Normal])
+  , (5  , Set.fromList [Ride Blue])
+  , (5.5, Set.fromList [HihatO Yellow])
+  , (6  , Set.fromList [Kick Normal, HihatF, Ride Blue])
+  , (6.5, Set.fromList [HihatC Yellow])
+  , (7  , Set.fromList [Ride Blue])
+  , (7.5, Set.fromList [Snare Normal])
+  , (8  , Set.fromList [Ride Blue])
+  , (8.5, Set.fromList [HihatO Yellow])
+  , (9  , Set.fromList [Kick Normal, HihatF, Ride Blue])
+  , (9.5, Set.fromList [HihatC Yellow])
+  , (10  , Set.fromList [Ride Blue])
+  , (10.5, Set.fromList [Kick Normal])
+  , (11  , Set.fromList [Snare Normal])
+  , (11.5, Set.fromList [Snare Normal])
+  , (12  , Set.fromList [Kick Normal, Crash Green])
   ]
 
 kitchenMeasures :: Map.Map Beats (Int, Beats)
@@ -468,8 +468,8 @@ inputLoop = do
           else case Map.maxViewWithKey lt of
             Just ((k, _), _) -> setPosition k
             Nothing          -> return ()
-    KeyDown (Keysym SDLK_1 _ _) -> unless b $ toggleDrum Kick
-    KeyDown (Keysym SDLK_2 _ _) -> unless b $ toggleDrum Snare
+    KeyDown (Keysym SDLK_1 _ _) -> unless b $ toggleDrum $ Kick Normal
+    KeyDown (Keysym SDLK_2 _ _) -> unless b $ toggleDrum $ Snare Normal
     KeyDown (Keysym SDLK_SPACE _ _) -> do
       (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
       (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
@@ -528,8 +528,13 @@ loadMIDI f = case MIDI.readFile f of
     mapTempos = fmap realToFrac $ Map.mapKeysMonotonic realToFrac $
       Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 rtbTempos
     mapPosTempos = positionTempos mapTempos
-    rtbDrums = lookup (Just "PART_DRUMS") $ MIDI.tracks fBeats
-    in do
-      modify $ \prog -> prog { vTracks = (vTracks prog)
-        { vTempos = mapPosTempos
-        } }
+    rtbDrumMidi = fromMaybe RTB.empty $ lookup (Just "PART_DRUMS") $ MIDI.tracks fBeats
+    mapDrumMidi = Map.mapKeysMonotonic realToFrac $ Map.fromAscList $
+      ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.collectCoincident $ rtbDrumMidi
+    mapDrums = Map.filter (not . Set.null) $ fmap getDrums mapDrumMidi
+    getDrums :: [MIDI.T Bool] -> Set.Set Note
+    getDrums = undefined
+    in modify $ \prog -> prog { vTracks = (vTracks prog)
+      { vTempos = mapPosTempos
+      , vDrums = positionTrack mapPosTempos mapDrums
+      } }
