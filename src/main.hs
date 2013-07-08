@@ -82,9 +82,11 @@ instance Ord Position where
   compare (Both  _ b) (Beats   b') = compare b b'
   compare (Seconds s) (Both  s' _) = compare s s'
   compare (Seconds s) (Seconds s') = compare s s'
-  compare (Seconds _) (Beats    _) = error "compare: can't compare Seconds and Beats"
+  compare (Seconds _) (Beats    _) =
+    error "compare: can't compare Seconds and Beats"
   compare (Beats   b) (Both  _ b') = compare b b'
-  compare (Beats   _) (Seconds  _) = error "compare: can't compare Seconds and Beats"
+  compare (Beats   _) (Seconds  _) =
+    error "compare: can't compare Seconds and Beats"
   compare (Beats   b) (Beats   b') = compare b b'
 
 instance Eq Position where
@@ -95,7 +97,7 @@ toSeconds (Both s _) = s
 toSeconds (Seconds s) = s
 toSeconds (Beats _) = error "toSeconds: got Beats value"
 
-toBeats :: Position -> Seconds
+toBeats :: Position -> Beats
 toBeats (Both _ b) = b
 toBeats (Beats b) = b
 toBeats (Seconds _) = error "toBeats: got Seconds value"
@@ -135,10 +137,15 @@ beatsToSeconds bts = do
   tmps <- gets $ vTempos . vTracks
   return $ beatsToSeconds' tmps bts
 
+positionBoth :: Position -> Prog Position
+positionBoth b@(Both _ _) = return b
+positionBoth (Seconds  s) = secondsToBeats s >>= \b -> return $ Both s b
+positionBoth (Beats    b) = beatsToSeconds b >>= \s -> return $ Both s b
+
 data Tracks = Tracks
   { vTempos   :: Map.Map Position BPS
   , vDrums    :: Map.Map Position (Set.Set Note)
-  , vMeasures :: Map.Map Position (Int, Beats)
+  , vTimeSigs :: Map.Map Position (Int, Beats)
   , vLines    :: Map.Map Position Line
   } deriving (Eq, Ord, Show, Read)
 
@@ -147,6 +154,7 @@ data Program = Program
   , vSources    :: Sources
   , vTracks     :: Tracks
   , vPosition   :: Position
+  , vEnd        :: Position
   , vResolution :: Int -- ^ Zoom level, in pixels (width) per second of time
   , vPlaying    :: Bool -- ^ Is audio currently playing?
   , vPlaySpeed  :: Rational
@@ -165,15 +173,27 @@ makeMeasure dvn start (mult, unit) = let
   measure = Map.singleton start Measure
   in measure `Map.union` beats `Map.union` subbeats
 
+makeLines' :: Beats -> [(Beats, (Int, Beats))] -> Beats -> [(Beats, Line)]
+makeLines' dvn sigs end = case sigs of
+  [] -> []
+  (bts, sig@(i, b)) : sigs' -> if bts >= end
+    then []
+    else let
+      bts' = bts + fromIntegral i * b
+      measure = Map.toAscList $ makeMeasure dvn bts sig
+      in measure ++ case sigs' of
+        (btsNext, _) : _ | bts' >= btsNext -> makeLines' dvn sigs' end
+        _ -> makeLines' dvn ((bts', sig) : sigs') end
+
 makeLines :: Prog ()
 makeLines = do
-  msrs <- fmap Map.toAscList $ gets $ vMeasures . vTracks
+  sigs <- fmap Map.toAscList $ gets $ vTimeSigs . vTracks
   dvn <- gets vDivision
-  let btLns = concatMap (Map.toAscList . uncurry (makeMeasure dvn . toBeats)) msrs
-  posLns <- forM btLns $ runKleisli $ first $ Kleisli $
-    \bts -> beatsToSeconds bts >>= \secs -> return $ Both secs bts
+  end <- gets vEnd
+  let btLns = makeLines' dvn (map (first toBeats) sigs) (toBeats end)
+  posLns <- forM btLns $ runKleisli $ first $ Kleisli $ positionBoth . Beats
   modify $ \prog ->
-    prog { vTracks = (vTracks prog) { vLines = Map.fromDistinctAscList posLns } }
+    prog { vTracks = (vTracks prog) { vLines = Map.fromList posLns } }
 
 data Surfaces = Surfaces
   { vScreen     :: Surface
@@ -295,14 +315,88 @@ kitchen = Map.fromList
   , (11  , Set.fromList [Snare Normal])
   , (11.5, Set.fromList [Snare Normal])
   , (12  , Set.fromList [Kick Normal, Crash Green])
+  , (12.5, Set.fromList [HihatF])
+  , (13  , Set.fromList [Ride Blue])
+  , (13.5, Set.fromList [Snare Normal])
+  , (14  , Set.fromList [Ride Blue])
+  , (14.5, Set.fromList [HihatO Yellow])
+  , (15  , Set.fromList [Kick Normal, HihatF, Ride Blue])
+  , (15.5, Set.fromList [HihatC Yellow])
+  , (16  , Set.fromList [Ride Blue])
+  , (16.5, Set.fromList [Snare Normal])
+  , (17  , Set.fromList [Ride Blue])
+  , (17.5, Set.fromList [HihatO Yellow])
+  , (18  , Set.fromList [Kick Normal, HihatF, Ride Blue])
+  , (18.5, Set.fromList [HihatC Yellow])
+  , (19  , Set.fromList [Ride Blue])
+  , (19.5, Set.fromList [Snare Normal])
+  , (20  , Set.fromList [Ride Blue])
+  , (20.5, Set.fromList [HihatO Yellow])
+  , (21  , Set.fromList [Kick Normal, HihatF, Ride Blue])
+  , (21.5, Set.fromList [HihatC Yellow])
+  , (22  , Set.fromList [Ride Blue])
+  , (22.5, Set.fromList [Kick Normal])
+  , (23  , Set.fromList [Snare Normal])
+  , (23.5, Set.fromList [Snare Normal])
+  , (24  , Set.fromList [Kick Normal, Crash Green])
+  , (24.5, Set.fromList [HihatF])
+  , (25  , Set.fromList [Ride Blue])
+  , (25.5, Set.fromList [Snare Normal])
+  , (26  , Set.fromList [Ride Blue])
+  , (26.5, Set.fromList [HihatO Yellow])
+  , (27  , Set.fromList [Kick Normal, HihatF, Ride Blue])
+  , (27.5, Set.fromList [HihatC Yellow])
+  , (28  , Set.fromList [Ride Blue])
+  , (28.5, Set.fromList [Snare Normal])
+  , (29  , Set.fromList [Ride Blue])
+  , (29.5, Set.fromList [HihatO Yellow])
+  , (30  , Set.fromList [Kick Normal, HihatF, Ride Blue])
+  , (30.5, Set.fromList [HihatC Yellow])
+  , (31  , Set.fromList [Ride Blue])
+  , (31.5, Set.fromList [Snare Normal])
+  , (32  , Set.fromList [Ride Blue])
+  , (32.5, Set.fromList [HihatO Yellow])
+  , (33  , Set.fromList [Kick Normal, HihatF, Ride Blue])
+  , (33.5, Set.fromList [HihatC Yellow])
+  , (34  , Set.fromList [Ride Blue])
+  , (34.5, Set.fromList [Kick Normal])
+  , (35  , Set.fromList [SnareFlam])
+  , (35.5, Set.fromList [SnareFlam])
+  , (36  , Set.fromList [Kick Normal, Crash Green])
+  , (36.5, Set.fromList [Ride Blue])
+  , (37  , Set.fromList [Kick Normal, Ride Blue])
+  , (37.5, Set.fromList [Snare Normal, Ride Blue])
+  , (38  , Set.fromList [Ride Blue])
+  , (38.5, Set.fromList [Kick Normal, Ride Blue])
+  , (39  , Set.fromList [Kick Normal, Ride Blue])
+  , (39.5, Set.fromList [Ride Blue])
+  , (40  , Set.fromList [Kick Normal, Ride Blue])
+  , (40.5, Set.fromList [Snare Normal, Ride Blue])
+  , (41  , Set.fromList [Ride Blue])
+  , (41.5, Set.fromList [Kick Normal, Ride Blue])
+  , (42  , Set.fromList [Kick Normal, Ride Blue])
+  , (42.5, Set.fromList [Ride Blue])
+  , (43  , Set.fromList [Kick Normal, Ride Blue])
+  , (43.5, Set.fromList [Snare Normal, Ride Blue])
+  , (44  , Set.fromList [Ride Blue])
+  , (44.5, Set.fromList [Kick Normal, Ride Blue])
+  , (45  , Set.fromList [Snare Normal, Crash Yellow])
+  , (45.5, Set.fromList [Snare Normal])
+  , (45.75, Set.fromList [Snare Normal])
+  , (46  , Set.fromList [Snare Normal])
+  , (46.25, Set.fromList [Snare Normal])
+  , (46.5, Set.fromList [Tom Yellow Normal])
+  , (46.75, Set.fromList [Tom Yellow Normal])
+  , (47, Set.fromList [Tom Blue Normal])
+  , (47.25, Set.fromList [Tom Blue Normal])
+  , (47.5, Set.fromList [Tom Green Normal])
+  , (47.75, Set.fromList [Tom Green Normal])
+  , (48, Set.fromList [Kick Normal, Crash Green])
   ]
-
-kitchenMeasures :: Map.Map Beats (Int, Beats)
-kitchenMeasures = Map.fromList $ map (, (3, 1)) [0, 3, 6, 9, 12]
 
 drawBG :: Prog ()
 drawBG = void $ do
-  scrn <- gets $ vScreen . vSurfaces
+  scrn <- gets $ vScreen     . vSurfaces
   bg   <- gets $ vBackground . vSurfaces
   liftIO $ apply 0 0 bg scrn
 
@@ -311,9 +405,9 @@ drawLines = gets (vLines . vTracks) >>= mapM_ (uncurry drawLine) . Map.toList
 
 drawStaff :: Prog ()
 drawStaff = do
-  scrn <- gets $ vScreen . vSurfaces
-  now <- gets $ vNowLine . vSurfaces
-  stf  <- gets $ vStaff . vSurfaces
+  scrn <- gets $ vScreen  . vSurfaces
+  now  <- gets $ vNowLine . vSurfaces
+  stf  <- gets $ vStaff   . vSurfaces
   void $ liftIO $ apply 0 100 stf scrn
   void $ liftIO $ apply (150 - 15) 0 now scrn
 
@@ -326,63 +420,73 @@ loadSource :: FilePath -> Source -> IO ()
 loadSource f src = createBuffer (File f) >>= \buf -> buffer src $= Just buf
 
 main :: IO ()
-main = withInit [InitTimer, InitVideo] $ withProgNameAndArgs runALUT $ \_ args -> do
+main = withInit [InitTimer, InitVideo] $
+  withProgNameAndArgs runALUT $ \_ args -> do
 
-  -- Get screen, load sprites
-  scrn       <- setVideoMode 1000 480 32 [SWSurface]
-  gemSheet   <- getDataFileName "gems.png"  >>= loadImage
-  bgImage    <- getDataFileName "bg.png"    >>= loadImage
-  staffImage <- getDataFileName "staff.png" >>= loadImage
-  beat       <- getDataFileName "beat.png"  >>= loadImage
-  now        <- getDataFileName "now.png"   >>= loadImage
+    -- Get screen, load sprites
+    scrn       <- setVideoMode 1000 480 32 [SWSurface]
+    gemSheet   <- getDataFileName "gems.png"  >>= loadImage
+    bgImage    <- getDataFileName "bg.png"    >>= loadImage
+    staffImage <- getDataFileName "staff.png" >>= loadImage
+    beat       <- getDataFileName "beat.png"  >>= loadImage
+    now        <- getDataFileName "now.png"   >>= loadImage
 
-  -- Load audio
-  srcs@[srcDrumL, srcDrumR, srcSongL, srcSongR] <- genObjectNames 4
-  zipWithM_ loadSource args srcs
-  forM_ [srcDrumL, srcSongL] $ \src ->
-    liftIO $ sourcePosition src $= Vertex3 (-1) 0 0
-  forM_ [srcDrumR, srcSongR] $ \src ->
-    liftIO $ sourcePosition src $= Vertex3 1 0 0
-  [srcClick] <- genObjectNames 1
-  clk <- getDataFileName "click.wav"
-  loadSource clk srcClick
+    -- Load audio
+    srcs@[srcDrumL, srcDrumR, srcSongL, srcSongR] <- genObjectNames 4
+    zipWithM_ loadSource args srcs
+    forM_ [srcDrumL, srcSongL] $ \src ->
+      liftIO $ sourcePosition src $= Vertex3 (-1) 0 0
+    forM_ [srcDrumR, srcSongR] $ \src ->
+      liftIO $ sourcePosition src $= Vertex3 1 0 0
+    [srcClick] <- genObjectNames 1
+    clk <- getDataFileName "click.wav"
+    loadSource clk srcClick
 
-  let surfaces = Surfaces
-        { vScreen = scrn
-        , vNoteSheet = gemSheet
-        , vBackground = bgImage
-        , vStaff = staffImage
-        , vBeatLines = beat
-        , vNowLine = now
-        }
-      sources = Sources
-        { vAudioStart = 39.726
-        , vDrumAudio = (srcDrumL, srcDrumR)
-        , vSongAudio = (srcSongL, srcSongR)
-        , vClick = srcClick
-        }
-      tmps = positionTempos $ Map.fromList
-        [ (0, 121.37 / 60)
-        , (6, 120.91 / 60)
-        ]
-      tracks = Tracks
-        { vTempos = tmps
-        , vDrums = positionTrack tmps kitchen
-        , vMeasures = positionTrack tmps kitchenMeasures
-        , vLines = Map.empty -- generated with makeLines
-        }
-      prog = Program
-        { vSurfaces = surfaces
-        , vSources = sources
-        , vTracks = tracks
-        , vPosition = Both 0 0
-        , vResolution = 200
-        , vPlaying = False
-        , vPlaySpeed = 1
-        , vDivision = 1/4
-        , vMetronome = False
-        }
-  evalStateT (setPosition (Both 0 0) >> makeLines >> draw >> inputLoop) prog
+    let surfaces = Surfaces
+          { vScreen     = scrn
+          , vNoteSheet  = gemSheet
+          , vBackground = bgImage
+          , vStaff      = staffImage
+          , vBeatLines  = beat
+          , vNowLine    = now
+          }
+        sources = Sources
+          { vAudioStart = 39.726
+          , vDrumAudio  = (srcDrumL, srcDrumR)
+          , vSongAudio  = (srcSongL, srcSongR)
+          , vClick      = srcClick
+          }
+        tmps = positionTempos $ Map.fromList
+          [ (0 , 121.372 / 60)
+          , (6 , 120.915 / 60)
+          , (12, 120     / 60)
+          , (18, 120.457 / 60)
+          , (24, 120     / 60)
+          , (30, 120.457 / 60)
+          , (36, 119.086 / 60)
+          , (42, 122.286 / 60)
+          , (45, 119.543 / 60)
+          , (48, 120.915 / 60)
+          ]
+        tracks = Tracks
+          { vTempos   = tmps
+          , vDrums    = positionTrack tmps kitchen
+          , vTimeSigs = positionTrack tmps $ Map.singleton 0 (6, 1)
+          , vLines    = Map.empty -- generated with makeLines
+          }
+        prog = Program
+          { vSurfaces   = surfaces
+          , vSources    = sources
+          , vTracks     = tracks
+          , vPosition   = Both 0 0
+          , vEnd        = Both (beatsToSeconds' tmps 52) 52
+          , vResolution = 200
+          , vPlaying    = False
+          , vPlaySpeed  = 1
+          , vDivision   = 1/4
+          , vMetronome  = False
+          }
+    evalStateT (setPosition (Both 0 0) >> makeLines >> draw >> inputLoop) prog
 
 pauseAndEdit :: ([Source] -> Prog ()) -> Prog ()
 pauseAndEdit f = do
