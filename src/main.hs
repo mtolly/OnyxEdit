@@ -52,23 +52,15 @@ noteSprite n = (30 * x, 0) where
     Kick Normal -> 0
     Snare Normal -> 1
     SnareFlam -> 20
-    Tom Yellow Normal -> 2
-    Tom Blue Normal -> 3 
-    Tom Green Normal -> 4
+    Tom ybg Normal -> 2 + fromEnum ybg
     HihatF -> 19
-    HihatC Yellow -> 8
-    HihatO Yellow -> 11
-    Ride Blue -> 9
-    Ride Green -> 10
-    Crash Yellow -> 5
-    Crash Blue -> 6
-    Crash Green -> 7
+    HihatC ybg -> 8 + fromEnum ybg
+    HihatO ybg -> 11 + fromEnum ybg
+    Ride ybg -> 25 + fromEnum ybg
+    Crash ybg -> 5 + fromEnum ybg
     Kick Ghost -> 14
     Snare Ghost -> 15
-    Tom Yellow Ghost -> 16
-    Tom Blue Ghost -> 17
-    Tom Green Ghost -> 18
-    _ -> error $ "noteSprite: unhandled note " ++ show n
+    Tom ybg Ghost -> 16 + fromEnum ybg
 
 type Seconds = Rational
 type Beats   = Rational

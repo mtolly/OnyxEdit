@@ -1,4 +1,4 @@
-<svg height='125' version='1.1' width='780' xmlns='http://www.w3.org/2000/svg'>
+<svg height='125' version='1.1' width='840' xmlns='http://www.w3.org/2000/svg'>
   <style>
     .thick {
       stroke-width: 2;
@@ -43,10 +43,13 @@
   <rect class='thick yellow' height='10' rx='2' ry='2' transform='translate(480 50)' width='10' x='10' y='7.5'></rect>
   <rect class='thick blue' height='10' rx='2' ry='2' transform='translate(510 25)' width='10' x='10' y='7.5'></rect>
   <rect class='thick green' height='10' rx='2' ry='2' transform='translate(540 0)' width='10' x='10' y='7.5'></rect>
-  <circle class='thick yellow' cx='15' cy='12.5' r='5' transform='translate(570 100)'></circle>
+  <polygon class='thick yellow' points='15,7.5 10,12.5 15,17.5 20,12.5' transform='translate(570 100)'></polygon>
   <rect class='thick red' height='45' rx='2' ry='2' transform='translate(600 50)' width='20' x='5' y='2.5'></rect>
   <rect class='thick yellow' height='45' rx='2' ry='2' transform='translate(630 25)' width='20' x='5' y='2.5'></rect>
   <rect class='thick blue' height='45' rx='2' ry='2' transform='translate(660 25)' width='20' x='5' y='2.5'></rect>
   <rect class='thick blue' height='45' rx='2' ry='2' transform='translate(690 0)' width='20' x='5' y='2.5'></rect>
   <rect class='thick green' height='45' rx='2' ry='2' transform='translate(720 0)' width='20' x='5' y='2.5'></rect>
+  <polygon class='thick yellow' points='15,2.5 5,22.5 25,22.5' transform='translate(750 50)'></polygon>
+  <polygon class='thick blue' points='15,2.5 5,22.5 25,22.5' transform='translate(780 25)'></polygon>
+  <polygon class='thick green' points='15,2.5 5,22.5 25,22.5' transform='translate(810 0)'></polygon>
 </svg>
