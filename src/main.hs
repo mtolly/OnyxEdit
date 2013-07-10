@@ -524,73 +524,76 @@ inputLoop = do
   evt <- liftIO pollEvent
   case evt of
     Quit -> liftIO exitSuccess
-    KeyDown (Keysym SDLK_UP _ _) ->
-      modify $ \prog -> prog { vResolution = vResolution prog + 20 }
-    KeyDown (Keysym SDLK_DOWN _ _) ->
-      modify $ \prog -> prog { vResolution = max 20 $ vResolution prog - 20 }
-    KeyDown (Keysym SDLK_LEFT _ _) -> do
-      spd <- gets vPlaySpeed
-      setSpeed $ max 0.1 $ spd - 0.1
-    KeyDown (Keysym SDLK_RIGHT _ _) -> do
-      spd <- gets vPlaySpeed
-      setSpeed $ min 2 $ spd + 0.1
-    MouseButtonDown _ _ ButtonWheelDown -> do
-      pos <- gets vPosition
-      lns <- gets $ vLines . vTracks
-      case Map.splitLookup pos lns of
-        (_, _, gt) -> if b
-          then case reverse $ take 2 $ Map.toAscList gt of
-            (k, _) : _ -> setPosition k
-            []         -> return ()
-          else case Map.minViewWithKey gt of
-            Just ((k, _), _) -> setPosition k
-            Nothing          -> return ()
-    MouseButtonDown _ _ ButtonWheelUp -> do
-      pos <- gets vPosition
-      lns <- gets $ vLines . vTracks
-      case Map.splitLookup pos lns of
-        (lt, _, _) -> if b
-          then case reverse $ take 3 $ Map.toDescList lt of
-            (k, _) : _ -> setPosition k
-            []         -> return ()
-          else case Map.maxViewWithKey lt of
-            Just ((k, _), _) -> setPosition k
-            Nothing          -> return ()
-    KeyDown (Keysym SDLK_1 _ _) -> unless b $ toggleDrum $ Kick Normal
-    KeyDown (Keysym SDLK_2 _ _) -> unless b $ toggleDrum $ Snare Normal
-    KeyDown (Keysym SDLK_SPACE _ _) -> do
-      (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
-      (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
-      modify $ \prog -> prog { vPlaying = not b }
-      liftIO $ (if b then pause else play)
-        [srcDrumL, srcDrumR, srcSongL, srcSongR]
-    KeyDown (Keysym SDLK_d _ _) -> do
-      (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
-      g <- liftIO $ Sound.ALUT.get $ sourceGain srcDrumL
-      forM_ [srcDrumL, srcDrumR] $ \src ->
-        liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
-    KeyDown (Keysym SDLK_s _ _) -> do
-      (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
-      g <- liftIO $ Sound.ALUT.get $ sourceGain srcSongL
-      forM_ [srcSongL, srcSongR] $ \src ->
-        liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
-    KeyDown (Keysym SDLK_z _ _) -> setPosition (Both 0 0)
-    KeyDown (Keysym SDLK_m _ _) ->
-      modify $ \prog -> prog { vMetronome = not $ vMetronome prog }
-    KeyDown (Keysym SDLK_q _ _) -> do
-      dvn <- gets vDivision
-      case (numerator dvn, denominator dvn) of
-        (1, d) -> do
-          modify $ \prog -> prog { vDivision = 1 % (d + 1) }
-          makeLines
-        _      -> return ()
-    KeyDown (Keysym SDLK_a _ _) -> do
-      dvn <- gets vDivision
-      case (numerator dvn, denominator dvn) of
-        (1, d) | d >= 2 -> do
-          modify $ \prog -> prog { vDivision = 1 % (d - 1) }
-          makeLines
-        _               -> return ()
+    KeyDown (Keysym k _ _) -> case k of
+      SDLK_UP -> modify $ \prog -> prog { vResolution = vResolution prog + 20 }
+      SDLK_DOWN ->
+        modify $ \prog -> prog { vResolution = max 20 $ vResolution prog - 20 }
+      SDLK_LEFT -> do
+        spd <- gets vPlaySpeed
+        setSpeed $ max 0.1 $ spd - 0.1
+      SDLK_RIGHT -> do
+        spd <- gets vPlaySpeed
+        setSpeed $ min 2 $ spd + 0.1
+      SDLK_1 -> unless b $ toggleDrum $ Kick Normal
+      SDLK_2 -> unless b $ toggleDrum $ Snare Normal
+      SDLK_SPACE -> do
+        (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
+        (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
+        modify $ \prog -> prog { vPlaying = not b }
+        liftIO $ (if b then pause else play)
+          [srcDrumL, srcDrumR, srcSongL, srcSongR]
+      SDLK_d -> do
+        (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
+        g <- liftIO $ Sound.ALUT.get $ sourceGain srcDrumL
+        forM_ [srcDrumL, srcDrumR] $ \src ->
+          liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
+      SDLK_s -> do
+        (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
+        g <- liftIO $ Sound.ALUT.get $ sourceGain srcSongL
+        forM_ [srcSongL, srcSongR] $ \src ->
+          liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
+      SDLK_z -> setPosition (Both 0 0)
+      SDLK_m ->
+        modify $ \prog -> prog { vMetronome = not $ vMetronome prog }
+      SDLK_q -> do
+        dvn <- gets vDivision
+        case (numerator dvn, denominator dvn) of
+          (1, d) -> do
+            modify $ \prog -> prog { vDivision = 1 % (d + 1) }
+            makeLines
+          _      -> return ()
+      SDLK_a -> do
+        dvn <- gets vDivision
+        case (numerator dvn, denominator dvn) of
+          (1, d) | d >= 2 -> do
+            modify $ \prog -> prog { vDivision = 1 % (d - 1) }
+            makeLines
+          _               -> return ()
+      _ -> return ()
+    MouseButtonDown _ _ btn -> case btn of
+      ButtonWheelDown -> do
+        pos <- gets vPosition
+        lns <- gets $ vLines . vTracks
+        case Map.splitLookup pos lns of
+          (_, _, gt) -> if b
+            then case reverse $ take 2 $ Map.toAscList gt of
+              (k, _) : _ -> setPosition k
+              []         -> return ()
+            else case Map.minViewWithKey gt of
+              Just ((k, _), _) -> setPosition k
+              Nothing          -> return ()
+      ButtonWheelUp -> do
+        pos <- gets vPosition
+        lns <- gets $ vLines . vTracks
+        case Map.splitLookup pos lns of
+          (lt, _, _) -> if b
+            then case reverse $ take 3 $ Map.toDescList lt of
+              (k, _) : _ -> setPosition k
+              []         -> return ()
+            else case Map.maxViewWithKey lt of
+              Just ((k, _), _) -> setPosition k
+              Nothing          -> return ()
+      _ -> return ()
     _    -> return ()
   inputLoop
 
