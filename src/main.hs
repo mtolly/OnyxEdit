@@ -5,7 +5,8 @@ import Graphics.UI.SDL hiding (flip)
 import qualified Graphics.UI.SDL as SDL
 import Graphics.UI.SDL.Image
 
-import Sound.ALUT
+import Sound.ALUT hiding (get)
+import qualified Sound.ALUT as ALUT
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -231,7 +232,7 @@ playUpdate = gets vPlaying >>= \b -> when b $ do
   pos <- gets vPosition
   lns <- gets $ vLines . vTracks
   (dl, _) <- gets $ vDrumAudio . vSources
-  t <- liftIO $ Sound.ALUT.get $ secOffset dl
+  t <- liftIO $ ALUT.get $ secOffset dl
   a <- gets $ vAudioStart . vSources
   let pos' = realToFrac $ t - a
   bts <- secondsToBeats pos' 
@@ -515,6 +516,75 @@ setBeats bts = do
   secs <- beatsToSeconds bts
   setPosition $ Both secs bts
 
+-- | The loop for a state that isn't in playing mode. We don't have to draw;
+-- just handle the next event.
+loopPaused :: Prog ()
+loopPaused = do
+  liftIO $ delay 1
+  evt <- liftIO pollEvent
+  case evt of
+    Quit -> liftIO exitSuccess
+    KeyDown (Keysym k _ _) -> case k of
+      _ -> loopPaused
+    MouseButtonDown _ _ btn -> case btn of
+      _ -> loopPaused
+    _ -> loopPaused
+
+-- | The loop for a state that is playing currently. We must start by updating
+-- our position, and drawing the board.
+loopPlaying :: Prog ()
+loopPlaying = do
+  liftIO $ delay 1
+  updatePlaying
+  draw
+  evt <- liftIO pollEvent
+  case evt of
+    Quit -> liftIO exitSuccess
+    KeyDown (Keysym k _ _) -> case k of
+      _ -> loopPlaying
+    MouseButtonDown _ _ btn -> case btn of
+      _ -> loopPlaying
+    _ -> loopPlaying
+
+allSources :: Prog [Source]
+allSources = do
+  (dl, dr) <- gets $ vDrumAudio . vSources
+  (sl, sr) <- gets $ vSongAudio . vSources
+  return [dl, dr, sl, sr]
+
+-- | Uses an audio source (or SDL's timer) to bump our position forward.
+-- Also triggers metronome sounds, if we passed a bar line.
+updatePlaying :: Prog ()
+updatePlaying = do
+  posOld <- gets vPosition
+  lns <- gets $ vLines . vTracks
+  srcs <- allSources
+  secNew <- case srcs of
+    -- If there is an audio source: get our current position by copying the
+    -- source's position. TODO: make sure the audio hasn't ended?
+    src : _ -> do
+      t <- liftIO $ ALUT.get $ secOffset src
+      a <- gets $ vAudioStart . vSources
+      return $ max 0 $ realToFrac $ t - a
+    -- If there is no audio source: TODO: get our current position by finding
+    -- the difference in SDL ticks from the place where we last recorded a
+    -- ticks/position pair.
+    []      -> undefined
+  posNew <- positionBoth $ Seconds secNew
+  modify $ \prog -> prog { vPosition = posNew }
+  met <- gets vMetronome
+  -- Search the space in [posOld, posNew) for a Measure/Beat line.
+  -- If so, trigger a metronome sound if the metronome is on.
+  when (posNew > posOld && met) $ case Map.splitLookup posOld lns of
+    (_, eq, gt) -> case Map.splitLookup posNew gt of
+      (lt, _, _) -> let
+        search = maybe id (:) eq $ Map.elems lt
+        in when (any (`elem` [Measure, Beat]) search) $ do
+          clk <- gets $ vClick . vSources
+          liftIO $ stop [clk]
+          liftIO $ secOffset clk $= 0
+          liftIO $ play [clk]
+
 inputLoop :: Prog ()
 inputLoop = do
   liftIO $ delay 1
@@ -544,12 +614,12 @@ inputLoop = do
           [srcDrumL, srcDrumR, srcSongL, srcSongR]
       SDLK_d -> do
         (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
-        g <- liftIO $ Sound.ALUT.get $ sourceGain srcDrumL
+        g <- liftIO $ ALUT.get $ sourceGain srcDrumL
         forM_ [srcDrumL, srcDrumR] $ \src ->
           liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
       SDLK_s -> do
         (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
-        g <- liftIO $ Sound.ALUT.get $ sourceGain srcSongL
+        g <- liftIO $ ALUT.get $ sourceGain srcSongL
         forM_ [srcSongL, srcSongR] $ \src ->
           liftIO $ sourceGain src $= if g > 0.5 then 0 else 1
       SDLK_z -> setPosition (Both 0 0)
