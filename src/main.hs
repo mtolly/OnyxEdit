@@ -12,17 +12,20 @@ import qualified Data.Set as Set
 
 import Data.Ratio
 
-import qualified Sound.MIDI.File as File
-import qualified Data.Rhythm.MIDI as MIDI
-import qualified Data.Rhythm.Status as Status
+import qualified Sound.MIDI.File.Load as Load
+import qualified Sound.MIDI.File as F
+import qualified Sound.MIDI.File.Event as E
+import qualified Sound.MIDI.File.Event.Meta as M
+import qualified Sound.MIDI.Message.Channel as C
+import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
 
-import Control.Monad (void, forM, forM_, zipWithM_, when, unless)
+import Control.Monad
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
 import Control.Arrow
-import Data.Maybe (fromMaybe)
+import Data.Maybe
 
 import System.Exit
 
@@ -288,6 +291,7 @@ drawNotes = do
       forM_ (Set.toList nts) $ drawNote pos
     drawMore = drawLess
 
+{-
 kitchen :: Map.Map Beats (Set.Set Note)
 kitchen = Map.fromList
   [ (0  , Set.fromList [Kick Normal, Crash Green])
@@ -393,6 +397,7 @@ kitchen = Map.fromList
   , (47.75, Set.fromList [Tom Green Normal])
   , (48, Set.fromList [Kick Normal, Crash Green])
   ]
+-}
 
 drawBG :: Prog ()
 drawBG = void $ do
@@ -433,7 +438,8 @@ main = withInit [InitTimer, InitVideo] $
 
     -- Load audio
     srcs@[srcDrumL, srcDrumR, srcSongL, srcSongR] <- genObjectNames 4
-    zipWithM_ loadSource args srcs
+    let midPath : wavs@[_,_,_,_] = args
+    zipWithM_ loadSource wavs srcs
     forM_ [srcDrumL, srcSongL] $ \src ->
       liftIO $ sourcePosition src $= Vertex3 (-1) 0 0
     forM_ [srcDrumR, srcSongR] $ \src ->
@@ -441,6 +447,9 @@ main = withInit [InitTimer, InitVideo] $
     [srcClick] <- genObjectNames 1
     clk <- getDataFileName "click.wav"
     loadSource clk srcClick
+
+    -- Load MIDI
+    mid <- Load.fromFile midPath
 
     let surfaces = Surfaces
           { vScreen     = scrn
@@ -456,37 +465,20 @@ main = withInit [InitTimer, InitVideo] $
           , vSongAudio  = (srcSongL, srcSongR)
           , vClick      = srcClick
           }
-        tmps = positionTempos $ Map.fromList
-          [ (0 , 121.372 / 60)
-          , (6 , 120.915 / 60)
-          , (12, 120     / 60)
-          , (18, 120.457 / 60)
-          , (24, 120     / 60)
-          , (30, 120.457 / 60)
-          , (36, 119.086 / 60)
-          , (42, 122.286 / 60)
-          , (45, 119.543 / 60)
-          , (48, 120.915 / 60)
-          ]
-        tracks = Tracks
-          { vTempos   = tmps
-          , vDrums    = positionTrack tmps kitchen
-          , vTimeSigs = positionTrack tmps $ Map.singleton 0 (6, 1)
-          , vLines    = Map.empty -- generated with makeLines
-          }
         prog = Program
           { vSurfaces   = surfaces
           , vSources    = sources
-          , vTracks     = tracks
-          , vPosition   = Both 0 0
-          , vEnd        = Both (beatsToSeconds' tmps 52) 52
+          , vTracks     = undefined
+          , vPosition   = undefined
+          , vEnd        = undefined
           , vResolution = 200
           , vPlaying    = False
           , vPlaySpeed  = 1
           , vDivision   = 1/4
           , vMetronome  = False
           }
-    evalStateT (setPosition (Both 0 0) >> makeLines >> draw >> inputLoop) prog
+
+    evalStateT (clearAll >> loadMIDI mid >> draw >> inputLoop) prog
 
 pauseAndEdit :: ([Source] -> Prog ()) -> Prog ()
 pauseAndEdit f = do
@@ -518,14 +510,14 @@ setSeconds secs = do
   bts <- secondsToBeats secs
   setPosition $ Both secs bts
 
-setBeats :: Seconds -> Prog ()
+setBeats :: Beats -> Prog ()
 setBeats bts = do
   secs <- beatsToSeconds bts
   setPosition $ Both secs bts
 
 inputLoop :: Prog ()
 inputLoop = do
-  liftIO $ delay 5
+  liftIO $ delay 1
   playUpdate
   draw
   b <- gets vPlaying
@@ -615,22 +607,134 @@ toggleDrum n = do
             else Just $ Set.delete n notes
           else Just $ Set.insert n notes
 
-loadMIDI :: File.T -> Prog ()
-loadMIDI f = case MIDI.readFile f of
-  Nothing -> error "Invalid MIDI file"
-  Just fTicks -> let
-    fBeats = MIDI.fromTickFile fTicks
-    rtbTempos = Status.toRTB' $ MIDI.tempoTrack fBeats
-    mapTempos = fmap realToFrac $ Map.mapKeysMonotonic realToFrac $
-      Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 rtbTempos
-    mapPosTempos = positionTempos mapTempos
-    rtbDrumMidi = fromMaybe RTB.empty $ lookup (Just "PART_DRUMS") $ MIDI.tracks fBeats
-    mapDrumMidi = Map.mapKeysMonotonic realToFrac $ Map.fromAscList $
-      ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.collectCoincident $ rtbDrumMidi
-    mapDrums = Map.filter (not . Set.null) $ fmap getDrums mapDrumMidi
-    getDrums :: [MIDI.T Bool] -> Set.Set Note
-    getDrums = undefined
-    in modify $ \prog -> prog { vTracks = (vTracks prog)
-      { vTempos = mapPosTempos
-      , vDrums = positionTrack mapPosTempos mapDrums
-      } }
+trackToMap :: F.Tempo -> RTB.T F.ElapsedTime a -> Map.Map Beats [a]
+trackToMap res = let res' = fromIntegral res
+  in Map.mapKeysMonotonic (\tks -> fromIntegral tks / res')
+  . Map.fromDistinctAscList . ATB.toPairList . RTB.toAbsoluteEventList 0
+  . RTB.collectCoincident
+
+trackName :: Map.Map Beats [E.T] -> Maybe String
+trackName trk = Map.lookup 0 trk >>= listToMaybe . mapMaybe isName where
+  isName :: E.T -> Maybe String
+  isName (E.MetaEvent (M.TrackName str)) = Just str
+  isName _                               = Nothing
+
+midiDrums :: Map.Map Beats [E.T] -> Prog ()
+midiDrums trk = let
+  pitchToNote (c, p, v) = case V.fromPitch p of
+    35 -> Just $ Kick hit -- acoustic bass drum
+    36 -> Just $ Kick hit -- bass drum 1
+    38 -> Just $ Snare hit -- acoustic snare
+    40 -> Just SnareFlam -- electric snare
+    41 -> Just $ Tom (fromMaybe Green ybg) hit
+    42 -> Just $ HihatC $ fromMaybe Yellow ybg
+    43 -> Just $ Tom (fromMaybe Green ybg) hit
+    44 -> Just HihatF
+    45 -> Just $ Tom (fromMaybe Blue ybg) hit
+    46 -> Just $ HihatO $ fromMaybe Yellow ybg
+    47 -> Just $ Tom (fromMaybe Blue ybg) hit
+    48 -> Just $ Tom (fromMaybe Yellow ybg) hit
+    49 -> Just $ Crash $ fromMaybe Green ybg -- crash 1
+    50 -> Just $ Tom (fromMaybe Yellow ybg) hit
+    51 -> Just $ Ride $ fromMaybe Blue ybg -- ride 1
+    52 -> Just $ Crash $ fromMaybe Yellow ybg -- china
+    53 -> Just $ Ride $ fromMaybe Blue ybg -- ride bell
+    55 -> Just $ Crash $ fromMaybe Yellow ybg -- splash
+    57 -> Just $ Crash $ fromMaybe Blue ybg -- crash 2
+    59 -> Just $ Ride $ fromMaybe Green ybg -- ride 2
+    _ -> Nothing
+    where ybg = case C.fromChannel c of
+            1 -> Just Yellow
+            2 -> Just Blue
+            3 -> Just Green
+            _ -> Nothing
+          hit = if V.fromVelocity v >= 64 then Normal else Ghost
+  getNoteOn e = case e of
+    E.MIDIEvent (C.Cons c (C.Voice (V.NoteOn p v)))
+      | V.fromVelocity v /= 0 -> Just (c, p, v)
+    _                         -> Nothing
+  listToSet es = let
+    st = Set.fromList $ mapMaybe (getNoteOn >=> pitchToNote) es
+    in guard (not $ Set.null st) >> Just st
+  in loadDrums $ Map.mapMaybe listToSet trk
+
+loadDrums :: Map.Map Beats (Set.Set Note) -> Prog ()
+loadDrums drms = do
+  tmps <- gets $ vTempos . vTracks
+  let drms' = positionTrack tmps drms
+  modify $ \prog -> prog { vTracks = (vTracks prog) { vDrums = drms' } }
+
+midiTempos :: Map.Map Beats [E.T] -> Prog ()
+midiTempos trk = let
+  getTempo e = case e of
+    -- (1000000 microsec/sec) / (x microsec/beat) = (1000000 / x) (beat/sec)
+    E.MetaEvent (M.SetTempo mspb) -> Just $ 1000000 / realToFrac mspb
+    _                             -> Nothing
+  in loadTempos $ Map.mapMaybe (listToMaybe . mapMaybe getTempo) trk
+
+loadTempos :: Map.Map Beats BPS -> Prog ()
+loadTempos tmps = let
+  tmps' = positionTempos tmps
+  toBoth pos = let bts = toBeats pos in Both (beatsToSeconds' tmps' bts) bts
+  in modify $ \prog -> let
+    trks = vTracks prog
+    in prog
+      { vPosition = toBoth $ vPosition prog
+      , vEnd      = toBoth $ vEnd prog
+      , vTracks   = trks
+        { vTempos   = tmps'
+        , vDrums    = Map.mapKeysMonotonic toBoth $ vDrums trks
+        , vTimeSigs = Map.mapKeysMonotonic toBoth $ vTimeSigs trks
+        , vLines    = Map.mapKeysMonotonic toBoth $ vLines trks
+        }
+      }
+
+midiTimeSigs :: Map.Map Beats [E.T] -> Prog ()
+midiTimeSigs trk = let
+  getTimeSig e = case e of
+    E.MetaEvent (M.TimeSig n d _ _) -> Just (n, (2 ^^ (-d)) * 4)
+    _                               -> Nothing
+  in loadTimeSigs $ Map.mapMaybe (listToMaybe . mapMaybe getTimeSig) trk
+
+loadTimeSigs :: Map.Map Beats (Int, Beats) -> Prog ()
+loadTimeSigs sigs = do
+  tmps <- gets $ vTempos . vTracks
+  let sigs' = positionTrack tmps sigs
+  modify $ \prog -> prog { vTracks = (vTracks prog) { vTimeSigs = sigs' } }
+  makeLines
+
+loadMIDI :: F.T -> Prog ()
+loadMIDI f = case f of
+  F.Cons F.Parallel (F.Ticks res) trks -> let
+    beatTrks = map (trackToMap res) trks
+    trkNames = map trackName beatTrks
+    drumTrk  = lookup (Just "onyx_drums") $ zip trkNames beatTrks
+    firstTrk = listToMaybe beatTrks
+    lastPos  = maximum $ 0 : map trkLast beatTrks
+    trkLast trk = case Map.maxViewWithKey trk of
+      Just ((k, _), _) -> k
+      Nothing          -> 0
+    in do
+      clearAll
+      end <- positionBoth $ Beats $ lastPos + 4
+      modify $ \prog -> prog { vEnd = end }
+      maybe (return ()) midiTempos firstTrk
+      maybe (return ()) midiTimeSigs firstTrk
+      maybe (return ()) midiDrums drumTrk
+      setPosition $ Both 0 0
+  _ -> error "loadMIDI: Not a parallel ticks-based MIDI file"
+
+emptyTracks :: Tracks
+emptyTracks = Tracks
+  { vTempos   = Map.singleton (Both 0 0) 2
+  , vDrums    = Map.empty
+  , vTimeSigs = Map.singleton (Both 0 0) (4, 1)
+  , vLines    = Map.empty
+  }
+
+clearAll :: Prog ()
+clearAll = modify $ \prog -> prog
+  { vTracks   = emptyTracks
+  , vPosition = Both 0 0
+  , vEnd      = Both 0 0
+  }

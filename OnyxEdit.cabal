@@ -18,8 +18,8 @@ Executable onyxedit
                     , SDL-image
                     , SDL
                     , midi
-                    , rhythm
                     , event-list
+                    , non-negative
   Main-Is:          main.hs
   Hs-Source-Dirs:   src
   Other-Modules:    Paths_OnyxEdit
