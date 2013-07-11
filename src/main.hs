@@ -515,7 +515,7 @@ toggleNote n = do
           else let
             occupied = staffLines n
             in Just $ Set.insert n $
-              Set.filter (\m -> null $ intersect occupied $ staffLines m) notes
+              Set.filter (null . intersect occupied . staffLines) notes
 
 -- | The loop for a state that isn't in playing mode. We don't have to draw;
 -- just handle the next event.
