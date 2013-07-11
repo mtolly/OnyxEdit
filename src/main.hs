@@ -10,6 +10,7 @@ import qualified Sound.ALUT as ALUT
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Data.List (intersect)
 
 import Data.Ratio
 
@@ -473,16 +474,6 @@ setPosition pos = do
   srcs <- allSources
   liftIO $ forM_ srcs $ \src -> secOffset src $= pos'
 
-setSeconds :: Seconds -> Prog ()
-setSeconds secs = do
-  bts <- secondsToBeats secs
-  setPosition $ Both secs bts
-
-setBeats :: Beats -> Prog ()
-setBeats bts = do
-  secs <- beatsToSeconds bts
-  setPosition $ Both secs bts
-
 setResolution :: Int -> Prog ()
 setResolution res = modify $ \prog -> prog { vResolution = res }
 
@@ -499,15 +490,32 @@ toggleSource src = liftIO $ do
 
 staffLines :: Note -> [Int]
 staffLines n = case n of
-  Kick _ -> [0]
-  Snare _ -> [1]
-  SnareFlam -> [1, 2]
-  Tom ybg _ -> [2 + fromEnum ybg]
-  HihatF -> [-1] -- So as not to conflict with Kick notes
-  HihatC ybg -> [2 + fromEnum ybg]
-  HihatO ybg -> [2 + fromEnum ybg]
-  Ride   ybg -> [2 + fromEnum ybg]
-  Crash  ybg -> [2 + fromEnum ybg]
+  Kick Normal -> [0]
+  Kick Ghost  -> [0, -1]
+  Snare _     -> [1]
+  SnareFlam   -> [1, 2]
+  Tom  ybg _  -> [2 + fromEnum ybg]
+  HihatF      -> [-1]
+  HihatC ybg  -> [2 + fromEnum ybg]
+  HihatO ybg  -> [2 + fromEnum ybg]
+  Ride   ybg  -> [2 + fromEnum ybg]
+  Crash  ybg  -> [2 + fromEnum ybg]
+
+toggleNote :: Note -> Prog ()
+toggleNote n = do
+  now <- gets vPosition
+  drms <- gets $ vDrums . vTracks
+  let drms' = Map.alter f now drms
+  modify $ \prog -> prog { vTracks = (vTracks prog) { vDrums = drms' } }
+  where f Nothing = Just $ Set.singleton n
+        f (Just notes) = if Set.member n notes
+          then if Set.size notes == 1
+            then Nothing
+            else Just $ Set.delete n notes
+          else let
+            occupied = staffLines n
+            in Just $ Set.insert n $
+              Set.filter (\m -> null $ intersect occupied $ staffLines m) notes
 
 -- | The loop for a state that isn't in playing mode. We don't have to draw;
 -- just handle the next event.
@@ -553,6 +561,8 @@ loopPaused = do
           _               -> return ()
         draw
         loopPaused
+      SDLK_1 -> toggleNote (Kick Normal) >> draw >> loopPaused
+      SDLK_2 -> toggleNote (Snare Normal) >> draw >> loopPaused
       _ -> loopPaused
     MouseButtonDown _ _ btn -> case btn of
       ButtonWheelDown -> do
@@ -685,19 +695,6 @@ updatePlaying = do
           liftIO $ stop [clk]
           liftIO $ secOffset clk $= 0
           liftIO $ play [clk]
-
-toggleDrum :: Note -> Prog ()
-toggleDrum n = do
-  now <- gets vPosition
-  drms <- gets $ vDrums . vTracks
-  let drms' = Map.alter f now drms
-  modify $ \prog -> prog { vTracks = (vTracks prog) { vDrums = drms' } }
-  where f Nothing = Just $ Set.singleton n
-        f (Just notes) = if Set.member n notes
-          then if Set.size notes == 1
-            then Nothing
-            else Just $ Set.delete n notes
-          else Just $ Set.insert n notes
 
 trackToMap :: F.Tempo -> RTB.T F.ElapsedTime a -> Map.Map Beats [a]
 trackToMap res = let res' = fromIntegral res
