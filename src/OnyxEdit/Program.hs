@@ -8,7 +8,10 @@ import Sound.ALUT hiding (get)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+import Control.Monad
 import Control.Monad.Trans.State
+import Control.Monad.IO.Class
+import Control.Arrow
 
 import OnyxEdit.Types
 
@@ -85,3 +88,89 @@ clearAll = modify $ \prog -> prog
   , vPosition = Both 0 0
   , vEnd      = Both 0 0
   }
+
+loadDrums :: Map.Map Beats (Set.Set Note) -> Prog ()
+loadDrums drms = do
+  tmps <- gets $ vTempos . vTracks
+  let drms' = positionTrack tmps drms
+  modify $ \prog -> prog { vTracks = (vTracks prog) { vDrums = drms' } }
+
+loadTempos :: Map.Map Beats BPS -> Prog ()
+loadTempos tmps = let
+  tmps' = positionTempos tmps
+  toBoth pos = let bts = toBeats pos in Both (beatsToSeconds tmps' bts) bts
+  in modify $ \prog -> let
+    trks = vTracks prog
+    in prog
+      { vPosition = toBoth $ vPosition prog
+      , vEnd      = toBoth $ vEnd prog
+      , vTracks   = trks
+        { vTempos   = tmps'
+        , vDrums    = Map.mapKeysMonotonic toBoth $ vDrums trks
+        , vTimeSigs = Map.mapKeysMonotonic toBoth $ vTimeSigs trks
+        , vLines    = Map.mapKeysMonotonic toBoth $ vLines trks
+        }
+      }
+
+loadTimeSigs :: Map.Map Beats (Int, Beats) -> Prog ()
+loadTimeSigs sigs = do
+  tmps <- gets $ vTempos . vTracks
+  let sigs' = positionTrack tmps sigs
+  modify $ \prog -> prog { vTracks = (vTracks prog) { vTimeSigs = sigs' } }
+  makeLines
+
+makeLines' :: Beats -> [(Beats, (Int, Beats))] -> Beats -> [(Beats, Line)]
+makeLines' dvn sigs end = case sigs of
+  [] -> []
+  (bts, sig@(i, b)) : sigs' -> if bts >= end
+    then []
+    else let
+      bts' = bts + fromIntegral i * b
+      measure = Map.toAscList $ makeMeasure dvn bts sig
+      in measure ++ case sigs' of
+        (btsNext, _) : _ | bts' >= btsNext -> makeLines' dvn sigs' end
+        _ -> makeLines' dvn ((bts', sig) : sigs') end
+
+makeLines :: Prog ()
+makeLines = do
+  sigs <- fmap Map.toAscList $ gets $ vTimeSigs . vTracks
+  dvn <- gets vDivision
+  end <- gets vEnd
+  let btLns = makeLines' dvn (map (first toBeats) sigs) (toBeats end)
+  posLns <- forM btLns $ runKleisli $ first $ Kleisli $ positionBoth . Beats
+  modify $ \prog ->
+    prog { vTracks = (vTracks prog) { vLines = Map.fromList posLns } }
+
+makeMeasure :: Beats -> Beats -> (Int, Beats) -> Map.Map Beats Line
+makeMeasure dvn start (mult, unit) = let
+  len = fromIntegral mult * unit
+  end = start + len
+  subbeats = Map.fromDistinctAscList $ map (, SubBeat) $
+    takeWhile (< end) [start, start + dvn ..]
+  beats    = Map.fromDistinctAscList $ map (, Beat) $
+    takeWhile (< end) [start, start + unit ..]
+  measure = Map.singleton start Measure
+  in measure `Map.union` beats `Map.union` subbeats
+
+setSpeed :: Rational -> Prog ()
+setSpeed spd = do
+  modify $ \prog -> prog { vPlaySpeed = spd }
+  srcs <- allSources
+  liftIO $ forM_ srcs $ \src -> pitch src $= realToFrac spd
+
+setPosition :: Position -> Prog ()
+setPosition pos = do
+  strt <- gets $ vAudioStart . vSources
+  let pos' = strt + realToFrac (toSeconds pos)
+  modify $ \prog -> prog { vPosition = pos }
+  srcs <- allSources
+  liftIO $ forM_ srcs $ \src -> secOffset src $= pos'
+
+setResolution :: Int -> Prog ()
+setResolution res = modify $ \prog -> prog { vResolution = res }
+
+modifyResolution :: (Int -> Int) -> Prog ()
+modifyResolution f = gets vResolution >>= setResolution . f
+
+modifySpeed :: (Rational -> Rational) -> Prog ()
+modifySpeed f = gets vPlaySpeed >>= setSpeed . f

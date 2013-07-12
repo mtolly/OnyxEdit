@@ -15,25 +15,17 @@ import Data.List (intersect)
 import Data.Ratio
 
 import qualified Sound.MIDI.File.Load as Load
-import qualified Sound.MIDI.File as F
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.File.Event.Meta as M
-import qualified Sound.MIDI.Message.Channel as C
-import qualified Sound.MIDI.Message.Channel.Voice as V
-import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Data.EventList.Absolute.TimeBody as ATB
 
 import Control.Monad
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
-import Control.Arrow
-import Data.Maybe
 
 import System.Exit
 
 import Paths_OnyxEdit
 import OnyxEdit.Types
 import OnyxEdit.Program
+import OnyxEdit.MIDI
 
 noteSprite :: Note -> (Int, Int)
 noteSprite n = (30 * x, 0) where
@@ -50,39 +42,6 @@ noteSprite n = (30 * x, 0) where
     Kick Ghost -> 14
     Snare Ghost -> 15
     Tom ybg Ghost -> 16 + fromEnum ybg
-
-makeMeasure :: Beats -> Beats -> (Int, Beats) -> Map.Map Beats Line
-makeMeasure dvn start (mult, unit) = let
-  len = fromIntegral mult * unit
-  end = start + len
-  subbeats = Map.fromDistinctAscList $ map (, SubBeat) $
-    takeWhile (< end) [start, start + dvn ..]
-  beats    = Map.fromDistinctAscList $ map (, Beat) $
-    takeWhile (< end) [start, start + unit ..]
-  measure = Map.singleton start Measure
-  in measure `Map.union` beats `Map.union` subbeats
-
-makeLines' :: Beats -> [(Beats, (Int, Beats))] -> Beats -> [(Beats, Line)]
-makeLines' dvn sigs end = case sigs of
-  [] -> []
-  (bts, sig@(i, b)) : sigs' -> if bts >= end
-    then []
-    else let
-      bts' = bts + fromIntegral i * b
-      measure = Map.toAscList $ makeMeasure dvn bts sig
-      in measure ++ case sigs' of
-        (btsNext, _) : _ | bts' >= btsNext -> makeLines' dvn sigs' end
-        _ -> makeLines' dvn ((bts', sig) : sigs') end
-
-makeLines :: Prog ()
-makeLines = do
-  sigs <- fmap Map.toAscList $ gets $ vTimeSigs . vTracks
-  dvn <- gets vDivision
-  end <- gets vEnd
-  let btLns = makeLines' dvn (map (first toBeats) sigs) (toBeats end)
-  posLns <- forM btLns $ runKleisli $ first $ Kleisli $ positionBoth . Beats
-  modify $ \prog ->
-    prog { vTracks = (vTracks prog) { vLines = Map.fromList posLns } }
 
 loadImage :: String -> IO Surface
 loadImage filename = load filename >>= displayFormatAlpha
@@ -222,29 +181,6 @@ main = withInit [InitTimer, InitVideo] $
           }
 
     evalStateT (clearAll >> loadMIDI mid >> draw >> loopPaused) prog
-
-setSpeed :: Rational -> Prog ()
-setSpeed spd = do
-  modify $ \prog -> prog { vPlaySpeed = spd }
-  srcs <- allSources
-  liftIO $ forM_ srcs $ \src -> pitch src $= realToFrac spd
-
-setPosition :: Position -> Prog ()
-setPosition pos = do
-  strt <- gets $ vAudioStart . vSources
-  let pos' = strt + realToFrac (toSeconds pos)
-  modify $ \prog -> prog { vPosition = pos }
-  srcs <- allSources
-  liftIO $ forM_ srcs $ \src -> secOffset src $= pos'
-
-setResolution :: Int -> Prog ()
-setResolution res = modify $ \prog -> prog { vResolution = res }
-
-modifyResolution :: (Int -> Int) -> Prog ()
-modifyResolution f = gets vResolution >>= setResolution . f
-
-modifySpeed :: (Rational -> Rational) -> Prog ()
-modifySpeed f = gets vPlaySpeed >>= setSpeed . f
 
 toggleSource :: Source -> Prog ()
 toggleSource src = liftIO $ do
@@ -503,120 +439,3 @@ updatePlaying = do
           liftIO $ stop [clk]
           liftIO $ secOffset clk $= 0
           liftIO $ play [clk]
-
-trackToMap :: F.Tempo -> RTB.T F.ElapsedTime a -> Map.Map Beats [a]
-trackToMap res = let res' = fromIntegral res
-  in Map.mapKeysMonotonic (\tks -> fromIntegral tks / res')
-  . Map.fromDistinctAscList . ATB.toPairList . RTB.toAbsoluteEventList 0
-  . RTB.collectCoincident
-
-trackName :: Map.Map Beats [E.T] -> Maybe String
-trackName trk = Map.lookup 0 trk >>= listToMaybe . mapMaybe isName where
-  isName :: E.T -> Maybe String
-  isName (E.MetaEvent (M.TrackName str)) = Just str
-  isName _                               = Nothing
-
-midiDrums :: Map.Map Beats [E.T] -> Prog ()
-midiDrums trk = let
-  pitchToNote (c, p, v) = case V.fromPitch p of
-    35 -> Just $ Kick hit -- acoustic bass drum
-    36 -> Just $ Kick hit -- bass drum 1
-    38 -> Just $ Snare hit -- acoustic snare
-    40 -> Just SnareFlam -- electric snare
-    41 -> Just $ Tom (fromMaybe Green ybg) hit
-    42 -> Just $ HihatC $ fromMaybe Yellow ybg
-    43 -> Just $ Tom (fromMaybe Green ybg) hit
-    44 -> Just HihatF
-    45 -> Just $ Tom (fromMaybe Blue ybg) hit
-    46 -> Just $ HihatO $ fromMaybe Yellow ybg
-    47 -> Just $ Tom (fromMaybe Blue ybg) hit
-    48 -> Just $ Tom (fromMaybe Yellow ybg) hit
-    49 -> Just $ Crash $ fromMaybe Green ybg -- crash 1
-    50 -> Just $ Tom (fromMaybe Yellow ybg) hit
-    51 -> Just $ Ride $ fromMaybe Blue ybg -- ride 1
-    52 -> Just $ Crash $ fromMaybe Yellow ybg -- china
-    53 -> Just $ Ride $ fromMaybe Blue ybg -- ride bell
-    55 -> Just $ Crash $ fromMaybe Yellow ybg -- splash
-    57 -> Just $ Crash $ fromMaybe Blue ybg -- crash 2
-    59 -> Just $ Ride $ fromMaybe Green ybg -- ride 2
-    _ -> Nothing
-    where ybg = case C.fromChannel c of
-            1 -> Just Yellow
-            2 -> Just Blue
-            3 -> Just Green
-            _ -> Nothing
-          hit = if V.fromVelocity v >= 64 then Normal else Ghost
-  getNoteOn e = case e of
-    E.MIDIEvent (C.Cons c (C.Voice (V.NoteOn p v)))
-      | V.fromVelocity v /= 0 -> Just (c, p, v)
-    _                         -> Nothing
-  listToSet es = let
-    st = Set.fromList $ mapMaybe (getNoteOn >=> pitchToNote) es
-    in guard (not $ Set.null st) >> Just st
-  in loadDrums $ Map.mapMaybe listToSet trk
-
-loadDrums :: Map.Map Beats (Set.Set Note) -> Prog ()
-loadDrums drms = do
-  tmps <- gets $ vTempos . vTracks
-  let drms' = positionTrack tmps drms
-  modify $ \prog -> prog { vTracks = (vTracks prog) { vDrums = drms' } }
-
-midiTempos :: Map.Map Beats [E.T] -> Prog ()
-midiTempos trk = let
-  getTempo e = case e of
-    -- (1000000 microsec/sec) / (x microsec/beat) = (1000000 / x) (beat/sec)
-    E.MetaEvent (M.SetTempo mspb) -> Just $ 1000000 / realToFrac mspb
-    _                             -> Nothing
-  in loadTempos $ Map.mapMaybe (listToMaybe . mapMaybe getTempo) trk
-
-loadTempos :: Map.Map Beats BPS -> Prog ()
-loadTempos tmps = let
-  tmps' = positionTempos tmps
-  toBoth pos = let bts = toBeats pos in Both (beatsToSeconds tmps' bts) bts
-  in modify $ \prog -> let
-    trks = vTracks prog
-    in prog
-      { vPosition = toBoth $ vPosition prog
-      , vEnd      = toBoth $ vEnd prog
-      , vTracks   = trks
-        { vTempos   = tmps'
-        , vDrums    = Map.mapKeysMonotonic toBoth $ vDrums trks
-        , vTimeSigs = Map.mapKeysMonotonic toBoth $ vTimeSigs trks
-        , vLines    = Map.mapKeysMonotonic toBoth $ vLines trks
-        }
-      }
-
-midiTimeSigs :: Map.Map Beats [E.T] -> Prog ()
-midiTimeSigs trk = let
-  getTimeSig e = case e of
-    E.MetaEvent (M.TimeSig n d _ _) -> Just (n, (2 ^^ (-d)) * 4)
-    _                               -> Nothing
-  in loadTimeSigs $ Map.mapMaybe (listToMaybe . mapMaybe getTimeSig) trk
-
-loadTimeSigs :: Map.Map Beats (Int, Beats) -> Prog ()
-loadTimeSigs sigs = do
-  tmps <- gets $ vTempos . vTracks
-  let sigs' = positionTrack tmps sigs
-  modify $ \prog -> prog { vTracks = (vTracks prog) { vTimeSigs = sigs' } }
-  makeLines
-
-loadMIDI :: F.T -> Prog ()
-loadMIDI f = case f of
-  F.Cons F.Parallel (F.Ticks res) trks -> let
-    beatTrks = map (trackToMap res) trks
-    trkNames = map trackName beatTrks
-    drumTrk  = lookup (Just "onyx_drums") $ zip trkNames beatTrks
-    firstTrk = listToMaybe beatTrks
-    lastPos  = maximum $ 0 : map trkLast beatTrks
-    trkLast trk = case Map.maxViewWithKey trk of
-      Just ((k, _), _) -> k
-      Nothing          -> 0
-    in do
-      clearAll
-      end <- positionBoth $ Beats $ lastPos + 4
-      modify $ \prog -> prog { vEnd = end }
-      maybe (return ()) midiTempos firstTrk
-      maybe (return ()) midiTimeSigs firstTrk
-      maybe (return ()) midiDrums drumTrk
-      setPosition $ Both 0 0
-  _ -> error "loadMIDI: Not a parallel ticks-based MIDI file"

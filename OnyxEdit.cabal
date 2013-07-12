@@ -25,4 +25,5 @@ Executable onyxedit
   Other-Modules:    Paths_OnyxEdit
                     OnyxEdit.Types
                     OnyxEdit.Program
+                    OnyxEdit.MIDI
   Ghc-Options:      -Wall
