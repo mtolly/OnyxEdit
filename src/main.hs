@@ -237,10 +237,10 @@ timeToX pos = do
 drawLine :: Position -> Line -> Prog ()
 drawLine pos l = void $ do
   x <- timeToX $ toSeconds pos
-  scrn <- gets $ vScreen . vSurfaces
+  scrn <- gets $ vScreen    . vSurfaces
   surf <- gets $ vBeatLines . vSurfaces
   let clip = Just $ case l of
-        Measure -> Rect 0 0 30 125
+        Measure -> Rect 0  0 30 125
         Beat    -> Rect 30 0 30 125
         SubBeat -> Rect 60 0 30 125
       drawAt = Just $ Rect (x - 15) 100 0 0
@@ -277,115 +277,7 @@ drawNotes = do
     drawLess = drawVisibleNotes . expandSets . Map.toDescList
     drawMore = drawVisibleNotes . expandSets . Map.toAscList
     expandSets :: [(a, Set.Set b)] -> [(a, b)]
-    expandSets = concatMap $ \(x, sy) -> map (x,) $ Set.toList sy 
-
-{-
-kitchen :: Map.Map Beats (Set.Set Note)
-kitchen = Map.fromList
-  [ (0  , Set.fromList [Kick Normal, Crash Green])
-  , (0.5, Set.fromList [HihatF])
-  , (1  , Set.fromList [Ride Blue])
-  , (1.5, Set.fromList [Snare Normal])
-  , (2  , Set.fromList [Ride Blue])
-  , (2.5, Set.fromList [HihatO Yellow])
-  , (3  , Set.fromList [Kick Normal, HihatF, Ride Blue])
-  , (3.5, Set.fromList [HihatC Yellow])
-  , (4  , Set.fromList [Ride Blue])
-  , (4.5, Set.fromList [Snare Normal])
-  , (5  , Set.fromList [Ride Blue])
-  , (5.5, Set.fromList [HihatO Yellow])
-  , (6  , Set.fromList [Kick Normal, HihatF, Ride Blue])
-  , (6.5, Set.fromList [HihatC Yellow])
-  , (7  , Set.fromList [Ride Blue])
-  , (7.5, Set.fromList [Snare Normal])
-  , (8  , Set.fromList [Ride Blue])
-  , (8.5, Set.fromList [HihatO Yellow])
-  , (9  , Set.fromList [Kick Normal, HihatF, Ride Blue])
-  , (9.5, Set.fromList [HihatC Yellow])
-  , (10  , Set.fromList [Ride Blue])
-  , (10.5, Set.fromList [Kick Normal])
-  , (11  , Set.fromList [Snare Normal])
-  , (11.5, Set.fromList [Snare Normal])
-  , (12  , Set.fromList [Kick Normal, Crash Green])
-  , (12.5, Set.fromList [HihatF])
-  , (13  , Set.fromList [Ride Blue])
-  , (13.5, Set.fromList [Snare Normal])
-  , (14  , Set.fromList [Ride Blue])
-  , (14.5, Set.fromList [HihatO Yellow])
-  , (15  , Set.fromList [Kick Normal, HihatF, Ride Blue])
-  , (15.5, Set.fromList [HihatC Yellow])
-  , (16  , Set.fromList [Ride Blue])
-  , (16.5, Set.fromList [Snare Normal])
-  , (17  , Set.fromList [Ride Blue])
-  , (17.5, Set.fromList [HihatO Yellow])
-  , (18  , Set.fromList [Kick Normal, HihatF, Ride Blue])
-  , (18.5, Set.fromList [HihatC Yellow])
-  , (19  , Set.fromList [Ride Blue])
-  , (19.5, Set.fromList [Snare Normal])
-  , (20  , Set.fromList [Ride Blue])
-  , (20.5, Set.fromList [HihatO Yellow])
-  , (21  , Set.fromList [Kick Normal, HihatF, Ride Blue])
-  , (21.5, Set.fromList [HihatC Yellow])
-  , (22  , Set.fromList [Ride Blue])
-  , (22.5, Set.fromList [Kick Normal])
-  , (23  , Set.fromList [Snare Normal])
-  , (23.5, Set.fromList [Snare Normal])
-  , (24  , Set.fromList [Kick Normal, Crash Green])
-  , (24.5, Set.fromList [HihatF])
-  , (25  , Set.fromList [Ride Blue])
-  , (25.5, Set.fromList [Snare Normal])
-  , (26  , Set.fromList [Ride Blue])
-  , (26.5, Set.fromList [HihatO Yellow])
-  , (27  , Set.fromList [Kick Normal, HihatF, Ride Blue])
-  , (27.5, Set.fromList [HihatC Yellow])
-  , (28  , Set.fromList [Ride Blue])
-  , (28.5, Set.fromList [Snare Normal])
-  , (29  , Set.fromList [Ride Blue])
-  , (29.5, Set.fromList [HihatO Yellow])
-  , (30  , Set.fromList [Kick Normal, HihatF, Ride Blue])
-  , (30.5, Set.fromList [HihatC Yellow])
-  , (31  , Set.fromList [Ride Blue])
-  , (31.5, Set.fromList [Snare Normal])
-  , (32  , Set.fromList [Ride Blue])
-  , (32.5, Set.fromList [HihatO Yellow])
-  , (33  , Set.fromList [Kick Normal, HihatF, Ride Blue])
-  , (33.5, Set.fromList [HihatC Yellow])
-  , (34  , Set.fromList [Ride Blue])
-  , (34.5, Set.fromList [Kick Normal])
-  , (35  , Set.fromList [SnareFlam])
-  , (35.5, Set.fromList [SnareFlam])
-  , (36  , Set.fromList [Kick Normal, Crash Green])
-  , (36.5, Set.fromList [Ride Blue])
-  , (37  , Set.fromList [Kick Normal, Ride Blue])
-  , (37.5, Set.fromList [Snare Normal, Ride Blue])
-  , (38  , Set.fromList [Ride Blue])
-  , (38.5, Set.fromList [Kick Normal, Ride Blue])
-  , (39  , Set.fromList [Kick Normal, Ride Blue])
-  , (39.5, Set.fromList [Ride Blue])
-  , (40  , Set.fromList [Kick Normal, Ride Blue])
-  , (40.5, Set.fromList [Snare Normal, Ride Blue])
-  , (41  , Set.fromList [Ride Blue])
-  , (41.5, Set.fromList [Kick Normal, Ride Blue])
-  , (42  , Set.fromList [Kick Normal, Ride Blue])
-  , (42.5, Set.fromList [Ride Blue])
-  , (43  , Set.fromList [Kick Normal, Ride Blue])
-  , (43.5, Set.fromList [Snare Normal, Ride Blue])
-  , (44  , Set.fromList [Ride Blue])
-  , (44.5, Set.fromList [Kick Normal, Ride Blue])
-  , (45  , Set.fromList [Snare Normal, Crash Yellow])
-  , (45.5, Set.fromList [Snare Normal])
-  , (45.75, Set.fromList [Snare Normal])
-  , (46  , Set.fromList [Snare Normal])
-  , (46.25, Set.fromList [Snare Normal])
-  , (46.5, Set.fromList [Tom Yellow Normal])
-  , (46.75, Set.fromList [Tom Yellow Normal])
-  , (47, Set.fromList [Tom Blue Normal])
-  , (47.25, Set.fromList [Tom Blue Normal])
-  , (47.5, Set.fromList [Tom Green Normal])
-  , (47.75, Set.fromList [Tom Green Normal])
-  , (48, Set.fromList [Kick Normal, Crash Green])
-  ]
--}
+    expandSets = concatMap $ \(x, sy) -> map (x,) $ Set.toList sy
 
 drawBG :: Prog ()
 drawBG = void $ do
@@ -401,8 +293,8 @@ drawStaff = do
   scrn <- gets $ vScreen  . vSurfaces
   now  <- gets $ vNowLine . vSurfaces
   stf  <- gets $ vStaff   . vSurfaces
-  void $ liftIO $ apply 0 100 stf scrn
-  void $ liftIO $ apply (150 - 15) 0 now scrn
+  void $ liftIO $ apply 0          100 stf scrn
+  void $ liftIO $ apply (150 - 15) 0   now scrn
 
 draw :: Prog ()
 draw = do
@@ -556,7 +448,6 @@ loopPaused = do
       SDLK_DOWN -> modifyResolution (\r -> max 0 $ r - 20) >> draw >> loopPaused
       SDLK_LEFT -> modifySpeed (\spd -> max 0.1 $ spd - 0.1) >> loopPaused
       SDLK_RIGHT -> modifySpeed (\spd -> min 2 $ spd + 0.1) >> loopPaused
-      SDLK_RETURN -> playAll >> loopPlaying
       SDLK_1 -> do
         (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
         forM_ [srcDrumL, srcDrumR] toggleSource
@@ -587,22 +478,22 @@ loopPaused = do
           _               -> return ()
         draw
         loopPaused
-      SDLK_z -> toggleNow HihatF >> draw >> loopPaused
-      SDLK_SPACE -> toggleNow (Kick hit) >> draw >> loopPaused
-      SDLK_v -> toggleNow (Snare hit) >> draw >> loopPaused
-      SDLK_d -> toggleNow SnareFlam >> draw >> loopPaused
-      SDLK_b -> toggleNow (Tom Yellow hit) >> draw >> loopPaused
-      SDLK_k -> toggleNow (Tom Blue hit) >> draw >> loopPaused
-      SDLK_m -> toggleNow (Tom Green hit) >> draw >> loopPaused
-      SDLK_c -> toggleNow (hihat Yellow) >> draw >> loopPaused
-      SDLK_t -> toggleNow (hihat Blue) >> draw >> loopPaused
-      SDLK_g -> toggleNow (hihat Green) >> draw >> loopPaused
-      SDLK_j -> toggleNow (Ride Yellow) >> draw >> loopPaused
-      SDLK_h -> toggleNow (Ride Blue) >> draw >> loopPaused
-      SDLK_l -> toggleNow (Ride Green) >> draw >> loopPaused
-      SDLK_n -> toggleNow (Crash Yellow) >> draw >> loopPaused
-      SDLK_e -> toggleNow (Crash Blue) >> draw >> loopPaused
-      SDLK_COMMA -> toggleNow (Crash Green) >> draw >> loopPaused
+      SDLK_z     -> toggleNow HihatF              >> draw >> loopPaused
+      SDLK_SPACE -> toggleNow (Kick          hit) >> draw >> loopPaused
+      SDLK_v     -> toggleNow (Snare         hit) >> draw >> loopPaused
+      SDLK_d     -> toggleNow SnareFlam           >> draw >> loopPaused
+      SDLK_b     -> toggleNow (Tom   Yellow  hit) >> draw >> loopPaused
+      SDLK_k     -> toggleNow (Tom   Blue    hit) >> draw >> loopPaused
+      SDLK_m     -> toggleNow (Tom   Green   hit) >> draw >> loopPaused
+      SDLK_c     -> toggleNow (hihat Yellow     ) >> draw >> loopPaused
+      SDLK_t     -> toggleNow (hihat Blue       ) >> draw >> loopPaused
+      SDLK_g     -> toggleNow (hihat Green      ) >> draw >> loopPaused
+      SDLK_j     -> toggleNow (Ride  Yellow     ) >> draw >> loopPaused
+      SDLK_h     -> toggleNow (Ride  Blue       ) >> draw >> loopPaused
+      SDLK_l     -> toggleNow (Ride  Green      ) >> draw >> loopPaused
+      SDLK_n     -> toggleNow (Crash Yellow     ) >> draw >> loopPaused
+      SDLK_e     -> toggleNow (Crash Blue       ) >> draw >> loopPaused
+      SDLK_COMMA -> toggleNow (Crash Green      ) >> draw >> loopPaused
       _ -> loopPaused
     MouseButtonDown _ _ btn -> case btn of
       ButtonWheelDown -> do
@@ -617,6 +508,7 @@ loopPaused = do
         maybe (return ()) (setPosition . fst) $ Map.lookupLT pos lns
         draw
         loopPaused
+      ButtonMiddle -> playAll >> loopPlaying
       _ -> loopPaused
     _ -> loopPaused
 
@@ -646,7 +538,6 @@ loopPlaying = do
         modifySpeed $ \spd -> min 2 $ spd + 0.1
         playAll
         loopPlaying
-      SDLK_RETURN -> pauseAll >> loopPaused
       SDLK_1 -> do
         (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
         forM_ [srcDrumL, srcDrumR] toggleSource
@@ -675,22 +566,22 @@ loopPlaying = do
             makeLines
           _               -> return ()
         loopPlaying
-      SDLK_z -> toggleNearest HihatF >> draw >> loopPlaying
-      SDLK_SPACE -> toggleNearest (Kick hit) >> draw >> loopPlaying
-      SDLK_v -> toggleNearest (Snare hit) >> draw >> loopPlaying
-      SDLK_d -> toggleNearest SnareFlam >> draw >> loopPlaying
-      SDLK_b -> toggleNearest (Tom Yellow hit) >> draw >> loopPlaying
-      SDLK_k -> toggleNearest (Tom Blue hit) >> draw >> loopPlaying
-      SDLK_m -> toggleNearest (Tom Green hit) >> draw >> loopPlaying
-      SDLK_c -> toggleNearest (hihat Yellow) >> draw >> loopPlaying
-      SDLK_t -> toggleNearest (hihat Blue) >> draw >> loopPlaying
-      SDLK_g -> toggleNearest (hihat Green) >> draw >> loopPlaying
-      SDLK_j -> toggleNearest (Ride Yellow) >> draw >> loopPlaying
-      SDLK_h -> toggleNearest (Ride Blue) >> draw >> loopPlaying
-      SDLK_l -> toggleNearest (Ride Green) >> draw >> loopPlaying
-      SDLK_n -> toggleNearest (Crash Yellow) >> draw >> loopPlaying
-      SDLK_e -> toggleNearest (Crash Blue) >> draw >> loopPlaying
-      SDLK_COMMA -> toggleNearest (Crash Green) >> draw >> loopPlaying
+      SDLK_z     -> toggleNearest HihatF              >> draw >> loopPlaying
+      SDLK_SPACE -> toggleNearest (Kick          hit) >> draw >> loopPlaying
+      SDLK_v     -> toggleNearest (Snare         hit) >> draw >> loopPlaying
+      SDLK_d     -> toggleNearest SnareFlam           >> draw >> loopPlaying
+      SDLK_b     -> toggleNearest (Tom   Yellow  hit) >> draw >> loopPlaying
+      SDLK_k     -> toggleNearest (Tom   Blue    hit) >> draw >> loopPlaying
+      SDLK_m     -> toggleNearest (Tom   Green   hit) >> draw >> loopPlaying
+      SDLK_c     -> toggleNearest (hihat Yellow     ) >> draw >> loopPlaying
+      SDLK_t     -> toggleNearest (hihat Blue       ) >> draw >> loopPlaying
+      SDLK_g     -> toggleNearest (hihat Green      ) >> draw >> loopPlaying
+      SDLK_j     -> toggleNearest (Ride  Yellow     ) >> draw >> loopPlaying
+      SDLK_h     -> toggleNearest (Ride  Blue       ) >> draw >> loopPlaying
+      SDLK_l     -> toggleNearest (Ride  Green      ) >> draw >> loopPlaying
+      SDLK_n     -> toggleNearest (Crash Yellow     ) >> draw >> loopPlaying
+      SDLK_e     -> toggleNearest (Crash Blue       ) >> draw >> loopPlaying
+      SDLK_COMMA -> toggleNearest (Crash Green      ) >> draw >> loopPlaying
       _ -> loopPlaying
     MouseButtonDown _ _ btn -> case btn of
       ButtonWheelDown -> do
@@ -709,6 +600,7 @@ loopPlaying = do
             (k, _) : _ -> setPosition k
             []         -> return ()
         loopPlaying
+      ButtonMiddle -> pauseAll >> loopPaused
       _ -> loopPlaying
     _ -> loopPlaying
 
@@ -745,7 +637,7 @@ updatePlaying = do
   met <- gets vMetronome
   -- Search the space in [posOld, posNew) for a Measure/Beat line.
   -- If so, trigger a metronome sound if the metronome is on.
-  when (posNew > posOld && met) $ case Map.splitLookup posOld lns of
+  when met $ case Map.splitLookup posOld lns of
     (_, eq, gt) -> case Map.splitLookup posNew gt of
       (lt, _, _) -> let
         search = maybe id (:) eq $ Map.elems lt
