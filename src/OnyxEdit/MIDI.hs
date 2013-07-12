@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 module OnyxEdit.MIDI (loadMIDI) where
 
 import qualified Data.Map as Map

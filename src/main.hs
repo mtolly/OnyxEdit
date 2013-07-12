@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 module Main (main) where
 
 import Graphics.UI.SDL hiding (flip)
