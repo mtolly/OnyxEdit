@@ -246,17 +246,24 @@ drawLine pos l = void $ do
       drawAt = Just $ Rect (x - 15) 100 0 0
   liftIO $ blitSurface surf clip scrn drawAt
 
-drawNote :: Position -> Note -> Prog ()
-drawNote pos note = void $ do
+drawNote :: Position -> Note -> Prog Int
+drawNote pos note = do
   surf <- gets $ vNoteSheet . vSurfaces
   scrn <- gets $ vScreen . vSurfaces
   x <- timeToX $ toSeconds pos
   let (clipX, clipY) = noteSprite note
       clip = Just $ Rect clipX clipY 30 125
       drawAt = Just $ Rect (x - 15) 100 0 0
-  liftIO $ blitSurface surf clip scrn drawAt
+  void $ liftIO $ blitSurface surf clip scrn drawAt
+  return x
 
--- TODO: Limit drawing to notes that are actually visible
+-- | Draws notes until it finds one that is definitely not visible.
+drawVisibleNotes :: [(Position, Note)] -> Prog ()
+drawVisibleNotes [] = return ()
+drawVisibleNotes ((pos, note) : pns) = do
+  x <- drawNote pos note
+  when (-100 < x && x < 1100) $ drawVisibleNotes pns
+
 drawNotes :: Prog ()
 drawNotes = do
   notes <- gets $ vDrums . vTracks
@@ -267,9 +274,10 @@ drawNotes = do
       maybe (return ()) (mapM_ (drawNote now) . Set.toList) eq
       drawMore gt
   where
-    drawLess mp = forM_ (Map.toList mp) $ \(pos, nts) ->
-      forM_ (Set.toList nts) $ drawNote pos
-    drawMore = drawLess
+    drawLess = drawVisibleNotes . expandSets . Map.toDescList
+    drawMore = drawVisibleNotes . expandSets . Map.toAscList
+    expandSets :: [(a, Set.Set b)] -> [(a, b)]
+    expandSets = concatMap $ \(x, sy) -> map (x,) $ Set.toList sy 
 
 {-
 kitchen :: Map.Map Beats (Set.Set Note)
