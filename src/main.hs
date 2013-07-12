@@ -590,12 +590,13 @@ loopPaused = do
       SDLK_z -> toggleNow HihatF >> draw >> loopPaused
       SDLK_SPACE -> toggleNow (Kick hit) >> draw >> loopPaused
       SDLK_v -> toggleNow (Snare hit) >> draw >> loopPaused
+      SDLK_d -> toggleNow SnareFlam >> draw >> loopPaused
       SDLK_b -> toggleNow (Tom Yellow hit) >> draw >> loopPaused
       SDLK_k -> toggleNow (Tom Blue hit) >> draw >> loopPaused
       SDLK_m -> toggleNow (Tom Green hit) >> draw >> loopPaused
       SDLK_c -> toggleNow (hihat Yellow) >> draw >> loopPaused
       SDLK_t -> toggleNow (hihat Blue) >> draw >> loopPaused
-      SDLK_d -> toggleNow (hihat Green) >> draw >> loopPaused
+      SDLK_g -> toggleNow (hihat Green) >> draw >> loopPaused
       SDLK_j -> toggleNow (Ride Yellow) >> draw >> loopPaused
       SDLK_h -> toggleNow (Ride Blue) >> draw >> loopPaused
       SDLK_l -> toggleNow (Ride Green) >> draw >> loopPaused
@@ -677,12 +678,13 @@ loopPlaying = do
       SDLK_z -> toggleNearest HihatF >> draw >> loopPlaying
       SDLK_SPACE -> toggleNearest (Kick hit) >> draw >> loopPlaying
       SDLK_v -> toggleNearest (Snare hit) >> draw >> loopPlaying
+      SDLK_d -> toggleNearest SnareFlam >> draw >> loopPlaying
       SDLK_b -> toggleNearest (Tom Yellow hit) >> draw >> loopPlaying
       SDLK_k -> toggleNearest (Tom Blue hit) >> draw >> loopPlaying
       SDLK_m -> toggleNearest (Tom Green hit) >> draw >> loopPlaying
       SDLK_c -> toggleNearest (hihat Yellow) >> draw >> loopPlaying
       SDLK_t -> toggleNearest (hihat Blue) >> draw >> loopPlaying
-      SDLK_d -> toggleNearest (hihat Green) >> draw >> loopPlaying
+      SDLK_g -> toggleNearest (hihat Green) >> draw >> loopPlaying
       SDLK_j -> toggleNearest (Ride Yellow) >> draw >> loopPlaying
       SDLK_h -> toggleNearest (Ride Blue) >> draw >> loopPlaying
       SDLK_l -> toggleNearest (Ride Green) >> draw >> loopPlaying
