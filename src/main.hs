@@ -509,11 +509,10 @@ staffLines n = case n of
   Ride   ybg  -> [2 + fromEnum ybg]
   Crash  ybg  -> [2 + fromEnum ybg]
 
-toggleNote :: Note -> Prog ()
-toggleNote n = do
-  now <- gets vPosition
+toggleNote :: Note -> Position -> Prog ()
+toggleNote n pos = do
   drms <- gets $ vDrums . vTracks
-  let drms' = Map.alter f now drms
+  let drms' = Map.alter f pos drms
   modify $ \prog -> prog { vTracks = (vTracks prog) { vDrums = drms' } }
   where f Nothing = Just $ Set.singleton n
         f (Just notes) = if Set.member n notes
@@ -525,6 +524,22 @@ toggleNote n = do
             in Just $ Set.insert n $
               Set.filter (null . intersect occupied . staffLines) notes
 
+toggleNow :: Note -> Prog ()
+toggleNow n = gets vPosition >>= toggleNote n
+
+toggleNearest :: Note -> Prog ()
+toggleNearest n = do
+  pos <- gets vPosition
+  lns <- gets $ vLines . vTracks
+  case (Map.lookupLE pos lns, Map.lookupGT pos lns) of
+    (Just (k1, _), Just (k2, _)) -> toggleNote n $ let
+      [secNow, sec1, sec2] = map toSeconds [pos, k1, k2]
+      secNow' = secNow - 0.05 -- approx. audio delay
+      in if secNow' - sec1 > sec2 - secNow' then k2 else k1
+    (Just (k, _), Nothing) -> toggleNote n k
+    (Nothing, Just (k, _)) -> toggleNote n k
+    (Nothing, Nothing) -> return ()
+
 -- | The loop for a state that isn't in playing mode. We don't have to draw;
 -- just handle the next event.
 loopPaused :: Prog ()
@@ -533,22 +548,25 @@ loopPaused = do
   evt <- liftIO pollEvent
   case evt of
     Quit -> liftIO exitSuccess
-    KeyDown (Keysym k _ _) -> case k of
+    KeyDown (Keysym k mods _) -> let
+      hihat = if elem KeyModLeftShift mods then HihatC else HihatO
+      hit   = if elem KeyModLeftCtrl  mods then Ghost  else Normal
+      in case k of
       SDLK_UP -> modifyResolution (+ 20) >> draw >> loopPaused
       SDLK_DOWN -> modifyResolution (\r -> max 0 $ r - 20) >> draw >> loopPaused
       SDLK_LEFT -> modifySpeed (\spd -> max 0.1 $ spd - 0.1) >> loopPaused
       SDLK_RIGHT -> modifySpeed (\spd -> min 2 $ spd + 0.1) >> loopPaused
-      SDLK_SPACE -> playAll >> loopPlaying
-      SDLK_d -> do
+      SDLK_RETURN -> playAll >> loopPlaying
+      SDLK_1 -> do
         (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
         forM_ [srcDrumL, srcDrumR] toggleSource
         loopPaused
-      SDLK_s -> do
+      SDLK_BACKQUOTE -> do
         (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
         forM_ [srcSongL, srcSongR] toggleSource
         loopPaused
-      SDLK_z -> setPosition (Both 0 0) >> draw >> loopPaused
-      SDLK_m -> do
+      SDLK_BACKSPACE -> setPosition (Both 0 0) >> draw >> loopPaused
+      SDLK_TAB -> do
         modify $ \prog -> prog { vMetronome = not $ vMetronome prog }
         loopPaused
       SDLK_q -> do
@@ -569,8 +587,21 @@ loopPaused = do
           _               -> return ()
         draw
         loopPaused
-      SDLK_1 -> toggleNote (Kick Normal) >> draw >> loopPaused
-      SDLK_2 -> toggleNote (Snare Normal) >> draw >> loopPaused
+      SDLK_z -> toggleNow HihatF >> draw >> loopPaused
+      SDLK_SPACE -> toggleNow (Kick hit) >> draw >> loopPaused
+      SDLK_v -> toggleNow (Snare hit) >> draw >> loopPaused
+      SDLK_b -> toggleNow (Tom Yellow hit) >> draw >> loopPaused
+      SDLK_k -> toggleNow (Tom Blue hit) >> draw >> loopPaused
+      SDLK_m -> toggleNow (Tom Green hit) >> draw >> loopPaused
+      SDLK_c -> toggleNow (hihat Yellow) >> draw >> loopPaused
+      SDLK_t -> toggleNow (hihat Blue) >> draw >> loopPaused
+      SDLK_d -> toggleNow (hihat Green) >> draw >> loopPaused
+      SDLK_j -> toggleNow (Ride Yellow) >> draw >> loopPaused
+      SDLK_h -> toggleNow (Ride Blue) >> draw >> loopPaused
+      SDLK_l -> toggleNow (Ride Green) >> draw >> loopPaused
+      SDLK_n -> toggleNow (Crash Yellow) >> draw >> loopPaused
+      SDLK_e -> toggleNow (Crash Blue) >> draw >> loopPaused
+      SDLK_COMMA -> toggleNow (Crash Green) >> draw >> loopPaused
       _ -> loopPaused
     MouseButtonDown _ _ btn -> case btn of
       ButtonWheelDown -> do
@@ -598,7 +629,10 @@ loopPlaying = do
   evt <- liftIO pollEvent
   case evt of
     Quit -> liftIO exitSuccess
-    KeyDown (Keysym k _ _) -> case k of
+    KeyDown (Keysym k mods _) -> let
+      hihat = if elem KeyModLeftShift mods then HihatC else HihatO
+      hit   = if elem KeyModLeftCtrl  mods then Ghost  else Normal
+      in case k of
       SDLK_UP -> modifyResolution (+ 20) >> draw >> loopPlaying
       SDLK_DOWN -> modifyResolution (\r -> max 0 $ r - 20) >> draw >> loopPlaying
       SDLK_LEFT -> do
@@ -611,17 +645,17 @@ loopPlaying = do
         modifySpeed $ \spd -> min 2 $ spd + 0.1
         playAll
         loopPlaying
-      SDLK_SPACE -> pauseAll >> loopPaused
-      SDLK_d -> do
+      SDLK_RETURN -> pauseAll >> loopPaused
+      SDLK_1 -> do
         (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
         forM_ [srcDrumL, srcDrumR] toggleSource
         loopPlaying
-      SDLK_s -> do
+      SDLK_BACKQUOTE -> do
         (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
         forM_ [srcSongL, srcSongR] toggleSource
         loopPlaying
-      SDLK_z -> pauseAll >> setPosition (Both 0 0) >> playAll >> loopPlaying
-      SDLK_m -> do
+      SDLK_BACKSPACE -> pauseAll >> setPosition (Both 0 0) >> playAll >> loopPlaying
+      SDLK_TAB -> do
         modify $ \prog -> prog { vMetronome = not $ vMetronome prog }
         loopPlaying
       SDLK_q -> do
@@ -640,6 +674,21 @@ loopPlaying = do
             makeLines
           _               -> return ()
         loopPlaying
+      SDLK_z -> toggleNearest HihatF >> draw >> loopPlaying
+      SDLK_SPACE -> toggleNearest (Kick hit) >> draw >> loopPlaying
+      SDLK_v -> toggleNearest (Snare hit) >> draw >> loopPlaying
+      SDLK_b -> toggleNearest (Tom Yellow hit) >> draw >> loopPlaying
+      SDLK_k -> toggleNearest (Tom Blue hit) >> draw >> loopPlaying
+      SDLK_m -> toggleNearest (Tom Green hit) >> draw >> loopPlaying
+      SDLK_c -> toggleNearest (hihat Yellow) >> draw >> loopPlaying
+      SDLK_t -> toggleNearest (hihat Blue) >> draw >> loopPlaying
+      SDLK_d -> toggleNearest (hihat Green) >> draw >> loopPlaying
+      SDLK_j -> toggleNearest (Ride Yellow) >> draw >> loopPlaying
+      SDLK_h -> toggleNearest (Ride Blue) >> draw >> loopPlaying
+      SDLK_l -> toggleNearest (Ride Green) >> draw >> loopPlaying
+      SDLK_n -> toggleNearest (Crash Yellow) >> draw >> loopPlaying
+      SDLK_e -> toggleNearest (Crash Blue) >> draw >> loopPlaying
+      SDLK_COMMA -> toggleNearest (Crash Green) >> draw >> loopPlaying
       _ -> loopPlaying
     MouseButtonDown _ _ btn -> case btn of
       ButtonWheelDown -> do
