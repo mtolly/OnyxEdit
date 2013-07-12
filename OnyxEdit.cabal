@@ -26,4 +26,5 @@ Executable onyxedit
                     OnyxEdit.Types
                     OnyxEdit.Program
                     OnyxEdit.MIDI
+                    OnyxEdit.Draw
   Ghc-Options:      -Wall
