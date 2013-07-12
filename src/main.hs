@@ -33,6 +33,7 @@ import System.Exit
 
 import Paths_OnyxEdit
 import OnyxEdit.Types
+import OnyxEdit.Program
 
 noteSprite :: Note -> (Int, Int)
 noteSprite n = (30 * x, 0) where
@@ -49,41 +50,6 @@ noteSprite n = (30 * x, 0) where
     Kick Ghost -> 14
     Snare Ghost -> 15
     Tom ybg Ghost -> 16 + fromEnum ybg
-
-fromSeconds :: Seconds -> Prog Position
-fromSeconds secs = do
-  tmps <- gets $ vTempos . vTracks
-  return $ Both secs $ secondsToBeats tmps secs
-
-fromBeats :: Beats -> Prog Position
-fromBeats bts = do
-  tmps <- gets $ vTempos . vTracks
-  return $ Both (beatsToSeconds tmps bts) bts
-
-positionBoth :: Position -> Prog Position
-positionBoth b@(Both _ _) = return b
-positionBoth (Seconds  s) = fromSeconds s
-positionBoth (Beats    b) = fromBeats b
-
-data Tracks = Tracks
-  { vTempos   :: Map.Map Position BPS
-  , vDrums    :: Map.Map Position (Set.Set Note)
-  , vTimeSigs :: Map.Map Position (Int, Beats)
-  , vLines    :: Map.Map Position Line
-  } deriving (Eq, Ord, Show, Read)
-
-data Program = Program
-  { vSurfaces   :: Surfaces
-  , vSources    :: Sources
-  , vTracks     :: Tracks
-  , vPosition   :: Position
-  , vEnd        :: Position
-  , vResolution :: Int -- ^ Zoom level, in pixels (width) per second of time
-  , vPlaying    :: Bool -- ^ Is audio currently playing?
-  , vPlaySpeed  :: Rational
-  , vDivision   :: Beats -- ^ The beat fraction that creates sub-beat lines.
-  , vMetronome  :: Bool
-  } deriving (Eq, Ord, Show)
 
 makeMeasure :: Beats -> Beats -> (Int, Beats) -> Map.Map Beats Line
 makeMeasure dvn start (mult, unit) = let
@@ -117,24 +83,6 @@ makeLines = do
   posLns <- forM btLns $ runKleisli $ first $ Kleisli $ positionBoth . Beats
   modify $ \prog ->
     prog { vTracks = (vTracks prog) { vLines = Map.fromList posLns } }
-
-data Surfaces = Surfaces
-  { vScreen     :: Surface
-  , vNoteSheet  :: Surface
-  , vBackground :: Surface
-  , vStaff      :: Surface
-  , vBeatLines  :: Surface
-  , vNowLine    :: Surface
-  } deriving (Eq, Ord, Show)
-
-data Sources = Sources
-  { vAudioStart :: Float
-  , vDrumAudio  :: (Source, Source)
-  , vSongAudio  :: (Source, Source)
-  , vClick      :: Source
-  } deriving (Eq, Ord, Show)
-
-type Prog = StateT Program IO
 
 loadImage :: String -> IO Surface
 loadImage filename = load filename >>= displayFormatAlpha
@@ -519,12 +467,6 @@ loopPlaying = do
       _ -> loopPlaying
     _ -> loopPlaying
 
-allSources :: Prog [Source]
-allSources = do
-  (dl, dr) <- gets $ vDrumAudio . vSources
-  (sl, sr) <- gets $ vSongAudio . vSources
-  return [dl, dr, sl, sr]
-
 pauseAll, playAll :: Prog ()
 pauseAll = allSources >>= liftIO . pause
 playAll  = allSources >>= liftIO . play
@@ -678,18 +620,3 @@ loadMIDI f = case f of
       maybe (return ()) midiDrums drumTrk
       setPosition $ Both 0 0
   _ -> error "loadMIDI: Not a parallel ticks-based MIDI file"
-
-emptyTracks :: Tracks
-emptyTracks = Tracks
-  { vTempos   = Map.singleton (Both 0 0) 2
-  , vDrums    = Map.empty
-  , vTimeSigs = Map.singleton (Both 0 0) (4, 1)
-  , vLines    = Map.empty
-  }
-
-clearAll :: Prog ()
-clearAll = modify $ \prog -> prog
-  { vTracks   = emptyTracks
-  , vPosition = Both 0 0
-  , vEnd      = Both 0 0
-  }

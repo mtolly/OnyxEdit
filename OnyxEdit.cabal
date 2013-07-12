@@ -24,4 +24,5 @@ Executable onyxedit
   Hs-Source-Dirs:   src
   Other-Modules:    Paths_OnyxEdit
                     OnyxEdit.Types
+                    OnyxEdit.Program
   Ghc-Options:      -Wall
