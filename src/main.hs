@@ -48,55 +48,55 @@ endContext = void $ do
 main :: IO ()
 main = withInit [InitTimer, InitVideo] $ do
 
-    -- Initialize OpenAL
-    beginContext
+  -- Initialize OpenAL
+  beginContext
 
-    -- Get screen, load sprites
-    scrn       <- setVideoMode 1000 480 32 [SWSurface]
-    gemSheet   <- getDataFileName "gems.png"  >>= loadImage
-    bgImage    <- getDataFileName "bg.png"    >>= loadImage
-    staffImage <- getDataFileName "staff.png" >>= loadImage
-    beat       <- getDataFileName "beat.png"  >>= loadImage
-    now        <- getDataFileName "now.png"   >>= loadImage
+  -- Get screen, load sprites
+  scrn       <- setVideoMode 1000 480 32 [SWSurface]
+  gemSheet   <- getDataFileName "gems.png"  >>= loadImage
+  bgImage    <- getDataFileName "bg.png"    >>= loadImage
+  staffImage <- getDataFileName "staff.png" >>= loadImage
+  beat       <- getDataFileName "beat.png"  >>= loadImage
+  now        <- getDataFileName "now.png"   >>= loadImage
 
-    -- Load audio
-    [midPath, drumPath, songPath] <- getArgs
-    (srcDrumL, srcDrumR) <- loadStereo16WAV drumPath
-    (srcSongL, srcSongR) <- loadStereo16WAV songPath
-    clkPath <- getDataFileName "click.wav"
-    srcClick <- loadMono16WAV clkPath
+  -- Load audio
+  [midPath, drumPath, songPath] <- getArgs
+  (srcDrumL, srcDrumR) <- loadStereo16WAV drumPath
+  (srcSongL, srcSongR) <- loadStereo16WAV songPath
+  clkPath <- getDataFileName "click.wav"
+  srcClick <- loadMono16WAV clkPath
 
-    -- Load MIDI
-    mid <- Load.fromFile midPath
+  -- Load MIDI
+  mid <- Load.fromFile midPath
 
-    let surfaces = Surfaces
-          { vScreen     = scrn
-          , vNoteSheet  = gemSheet
-          , vBackground = bgImage
-          , vStaff      = staffImage
-          , vBeatLines  = beat
-          , vNowLine    = now
-          }
-        sources = Sources
-          { vAudioStart = 39.726
-          , vDrumAudio  = (srcDrumL, srcDrumR)
-          , vSongAudio  = (srcSongL, srcSongR)
-          , vClick      = srcClick
-          }
-        prog = Program
-          { vSurfaces   = surfaces
-          , vSources    = sources
-          , vTracks     = undefined
-          , vPosition   = undefined
-          , vEnd        = undefined
-          , vResolution = 200
-          , vPlaying    = False
-          , vPlaySpeed  = 1
-          , vDivision   = 1/4
-          , vMetronome  = False
-          }
+  let surfaces = Surfaces
+        { vScreen     = scrn
+        , vNoteSheet  = gemSheet
+        , vBackground = bgImage
+        , vStaff      = staffImage
+        , vBeatLines  = beat
+        , vNowLine    = now
+        }
+      sources = Sources
+        { vAudioStart = 39.726
+        , vDrumAudio  = (srcDrumL, srcDrumR)
+        , vSongAudio  = (srcSongL, srcSongR)
+        , vClick      = srcClick
+        }
+      prog = Program
+        { vSurfaces   = surfaces
+        , vSources    = sources
+        , vTracks     = undefined
+        , vPosition   = undefined
+        , vEnd        = undefined
+        , vResolution = 200
+        , vPlaying    = False
+        , vPlaySpeed  = 1
+        , vDivision   = 1/4
+        , vMetronome  = False
+        }
 
-    evalStateT (clearAll >> loadMIDI mid >> draw >> loopPaused) prog
+  evalStateT (clearAll >> loadMIDI mid >> draw >> loopPaused) prog
 
 toggleSource :: Source -> Prog ()
 toggleSource src = liftIO $ do
