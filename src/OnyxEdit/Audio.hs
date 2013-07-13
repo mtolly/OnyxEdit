@@ -1,4 +1,4 @@
-module OnyxEdit.Audio (loadStereo16WAV, loadMono16WAV) where
+module OnyxEdit.Audio (beginContext, endContext, loadStereo16WAV, loadMono16WAV) where
 
 import Sound.OpenAL
 import Foreign.Marshal.Alloc
@@ -8,6 +8,20 @@ import System.IO
 import Data.Word
 import Foreign.Ptr
 import Control.Monad
+
+beginContext :: IO ()
+beginContext = do
+  Just dev <- openDevice Nothing
+  Just ctxt <- createContext dev []
+  currentContext $= Just ctxt
+
+endContext :: IO ()
+endContext = void $ do
+  Just ctxt <- get currentContext
+  Just dev <- get $ contextsDevice ctxt
+  currentContext $= Nothing
+  destroyContext ctxt
+  closeDevice dev
 
 -- | Gets the WAV data size and leaves the handle at the beginning of the data.
 getWAVSize :: Handle -> IO Int

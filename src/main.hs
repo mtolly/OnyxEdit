@@ -31,20 +31,6 @@ import OnyxEdit.Audio
 loadImage :: String -> IO Surface
 loadImage filename = load filename >>= displayFormatAlpha
 
-beginContext :: IO ()
-beginContext = do
-  Just dev <- openDevice Nothing
-  Just ctxt <- createContext dev []
-  currentContext $= Just ctxt
-
-endContext :: IO ()
-endContext = void $ do
-  Just ctxt <- OpenAL.get currentContext
-  Just dev <- OpenAL.get $ contextsDevice ctxt
-  currentContext $= Nothing
-  destroyContext ctxt
-  closeDevice dev
-
 main :: IO ()
 main = withInit [InitTimer, InitVideo] $ do
 
