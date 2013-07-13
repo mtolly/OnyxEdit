@@ -3,8 +3,8 @@ module Main (main) where
 import Graphics.UI.SDL hiding (flip)
 import Graphics.UI.SDL.Image
 
-import Sound.ALUT hiding (get)
-import qualified Sound.ALUT as ALUT
+import Sound.OpenAL hiding (get)
+import qualified Sound.OpenAL as OpenAL
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -19,22 +19,37 @@ import Control.Monad.Trans.State
 import Control.Monad.IO.Class
 
 import System.Exit
+import System.Environment (getArgs)
 
 import Paths_OnyxEdit
 import OnyxEdit.Types
 import OnyxEdit.Program
 import OnyxEdit.MIDI
 import OnyxEdit.Draw
+import OnyxEdit.Audio
 
 loadImage :: String -> IO Surface
 loadImage filename = load filename >>= displayFormatAlpha
 
-loadSource :: FilePath -> Source -> IO ()
-loadSource f src = createBuffer (File f) >>= \buf -> buffer src $= Just buf
+beginContext :: IO ()
+beginContext = do
+  Just dev <- openDevice Nothing
+  Just ctxt <- createContext dev []
+  currentContext $= Just ctxt
+
+endContext :: IO ()
+endContext = void $ do
+  Just ctxt <- OpenAL.get currentContext
+  Just dev <- OpenAL.get $ contextsDevice ctxt
+  currentContext $= Nothing
+  destroyContext ctxt
+  closeDevice dev
 
 main :: IO ()
-main = withInit [InitTimer, InitVideo] $
-  withProgNameAndArgs runALUT $ \_ args -> do
+main = withInit [InitTimer, InitVideo] $ do
+
+    -- Initialize OpenAL
+    beginContext
 
     -- Get screen, load sprites
     scrn       <- setVideoMode 1000 480 32 [SWSurface]
@@ -45,16 +60,11 @@ main = withInit [InitTimer, InitVideo] $
     now        <- getDataFileName "now.png"   >>= loadImage
 
     -- Load audio
-    srcs@[srcDrumL, srcDrumR, srcSongL, srcSongR] <- genObjectNames 4
-    let midPath : wavs@[_,_,_,_] = args
-    zipWithM_ loadSource wavs srcs
-    forM_ [srcDrumL, srcSongL] $ \src ->
-      liftIO $ sourcePosition src $= Vertex3 (-1) 0 0
-    forM_ [srcDrumR, srcSongR] $ \src ->
-      liftIO $ sourcePosition src $= Vertex3 1 0 0
-    [srcClick] <- genObjectNames 1
-    clk <- getDataFileName "click.wav"
-    loadSource clk srcClick
+    [midPath, drumPath, songPath] <- getArgs
+    (srcDrumL, srcDrumR) <- loadStereo16WAV drumPath
+    (srcSongL, srcSongR) <- loadStereo16WAV songPath
+    clkPath <- getDataFileName "click.wav"
+    srcClick <- loadMono16WAV clkPath
 
     -- Load MIDI
     mid <- Load.fromFile midPath
@@ -90,7 +100,7 @@ main = withInit [InitTimer, InitVideo] $
 
 toggleSource :: Source -> Prog ()
 toggleSource src = liftIO $ do
-  g <- ALUT.get $ sourceGain src
+  g <- OpenAL.get $ sourceGain src
   sourceGain src $= if g > 0.5 then 0 else 1
 
 staffLines :: Note -> [Int]
@@ -144,7 +154,7 @@ loopPaused = do
   liftIO $ delay 1
   evt <- liftIO pollEvent
   case evt of
-    Quit -> liftIO exitSuccess
+    Quit -> liftIO $ endContext >> exitSuccess
     KeyDown (Keysym k mods _) -> let
       hihat = if elem KeyModLeftShift mods then HihatC else HihatO
       hit   = if elem KeyModLeftCtrl  mods then Ghost  else Normal
@@ -226,7 +236,7 @@ loopPlaying = do
   draw
   evt <- liftIO pollEvent
   case evt of
-    Quit -> liftIO exitSuccess
+    Quit -> liftIO $ endContext >> exitSuccess
     KeyDown (Keysym k mods _) -> let
       hihat = if elem KeyModLeftShift mods then HihatC else HihatO
       hit   = if elem KeyModLeftCtrl  mods then Ghost  else Normal
@@ -324,7 +334,7 @@ updatePlaying = do
     -- If there is an audio source: get our current position by copying the
     -- source's position. TODO: make sure the audio hasn't ended?
     src : _ -> do
-      t <- liftIO $ ALUT.get $ secOffset src
+      t <- liftIO $ OpenAL.get $ secOffset src
       a <- gets $ vAudioStart . vSources
       return $ max 0 $ realToFrac $ t - a
     -- If there is no audio source: TODO: get our current position by finding

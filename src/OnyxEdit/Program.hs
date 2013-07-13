@@ -3,7 +3,7 @@ module OnyxEdit.Program where
 
 import Graphics.UI.SDL hiding (flip)
 
-import Sound.ALUT hiding (get)
+import Sound.OpenAL hiding (get)
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
