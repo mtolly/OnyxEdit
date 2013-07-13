@@ -1,5 +1,7 @@
 {-# LANGUAGE TupleSections #-}
-module OnyxEdit.Draw (draw) where
+module OnyxEdit.Draw
+( draw
+) where
 
 import Graphics.UI.SDL hiding (flip)
 import qualified Graphics.UI.SDL as SDL

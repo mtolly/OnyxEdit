@@ -1,4 +1,7 @@
-module OnyxEdit.Audio (beginContext, endContext, loadStereo16WAV, loadMono16WAV) where
+module OnyxEdit.Audio
+( beginContext, endContext
+, loadStereo16WAV, loadMono16WAV
+) where
 
 import Sound.OpenAL
 import Foreign.Marshal.Alloc
@@ -77,21 +80,3 @@ loadStereo16WAV fp = withBinaryFile fp ReadMode hLoadStereo16WAV
 
 loadMono16WAV :: FilePath -> IO Source
 loadMono16WAV fp = withBinaryFile fp ReadMode hLoadMono16WAV
-
-{-
-main :: IO ()
-main = do
-  Just dev <- openDevice Nothing
-  Just ctxt <- createContext dev []
-  currentContext $= Just ctxt
-  (srcL, srcR) <- withBinaryFile "drums2.wav" ReadMode loadStereo16WAV
-  play [srcL, srcR]
-  let waitPlay = do
-        st <- get $ sourceState srcL
-        case st of
-          Playing -> waitPlay
-          _       -> print st
-  waitPlay
-  _ <- closeDevice dev
-  return ()
--}
