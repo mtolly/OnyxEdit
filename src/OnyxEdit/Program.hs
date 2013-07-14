@@ -1,4 +1,5 @@
 {-# LANGUAGE TupleSections #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 module OnyxEdit.Program where
 
 import Prelude hiding ((.), id)
@@ -198,12 +199,6 @@ setEnd end = do
     [ vPosition ^= min pos end
     , vEnd      ^= end
     ]
-
-setResolution :: Int -> Prog ()
-setResolution = A.set vResolution
-
-modifyResolution :: (Int -> Int) -> Prog ()
-modifyResolution f = A.get vResolution >>= setResolution . f
 
 modifySpeed :: (Rational -> Rational) -> Prog ()
 modifySpeed f = A.get vPlaySpeed >>= setSpeed . f

@@ -144,8 +144,8 @@ loopPaused = do
       hihat = if KeyModLeftShift `elem` mods then HihatC else HihatO
       hit   = if KeyModLeftCtrl  `elem` mods then Ghost  else Normal
       in case k of
-      SDLK_UP -> modifyResolution (+ 20) >> draw >> loopPaused
-      SDLK_DOWN -> modifyResolution (\r -> max 0 $ r - 20) >> draw >> loopPaused
+      SDLK_UP -> A.modify vResolution (+ 20) >> draw >> loopPaused
+      SDLK_DOWN -> A.modify vResolution (\r -> max 0 $ r - 20) >> draw >> loopPaused
       SDLK_LEFT -> modifySpeed (\spd -> max 0.1 $ spd - 0.1) >> loopPaused
       SDLK_RIGHT -> modifySpeed (\spd -> min 2 $ spd + 0.1) >> loopPaused
       SDLK_1 -> do
@@ -226,8 +226,8 @@ loopPlaying = do
       hihat = if KeyModLeftShift `elem` mods then HihatC else HihatO
       hit   = if KeyModLeftCtrl  `elem` mods then Ghost  else Normal
       in case k of
-      SDLK_UP -> modifyResolution (+ 20) >> draw >> loopPlaying
-      SDLK_DOWN -> modifyResolution (\r -> max 0 $ r - 20) >> draw >> loopPlaying
+      SDLK_UP -> A.modify vResolution (+ 20) >> draw >> loopPlaying
+      SDLK_DOWN -> A.modify vResolution (\r -> max 0 $ r - 20) >> draw >> loopPlaying
       SDLK_LEFT -> do
         pauseAll
         modifySpeed $ \spd -> max 0.1 $ spd - 0.1
