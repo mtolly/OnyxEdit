@@ -34,13 +34,13 @@ data Program = Program
   , vMetronome_  :: Bool
   } deriving (Eq, Ord, Show)
 
-vSurfaces   = accessor vSurfaces_ $ \x s -> s { vSurfaces_ = x }
-vSources    = accessor vSources_ $ \x s -> s { vSources_ = x }
-vTracks     = accessor vTracks_ $ \x s -> s { vTracks_ = x }
+vSurfaces   = accessor vSurfaces_   $ \x s -> s { vSurfaces_   = x }
+vSources    = accessor vSources_    $ \x s -> s { vSources_    = x }
+vTracks     = accessor vTracks_     $ \x s -> s { vTracks_     = x }
 vResolution = accessor vResolution_ $ \x s -> s { vResolution_ = x }
-vPlaySpeed  = accessor vPlaySpeed_ $ \x s -> s { vPlaySpeed_ = x }
-vDivision   = accessor vDivision_ $ \x s -> s { vDivision_ = x }
-vMetronome  = accessor vMetronome_ $ \x s -> s { vMetronome_ = x }
+vPlaySpeed  = accessor vPlaySpeed_  $ \x s -> s { vPlaySpeed_  = x }
+vDivision   = accessor vDivision_   $ \x s -> s { vDivision_   = x }
+vMetronome  = accessor vMetronome_  $ \x s -> s { vMetronome_  = x }
 
 data Tracks = Tracks
   { vPosition_ :: Position
@@ -52,11 +52,11 @@ data Tracks = Tracks
   } deriving (Eq, Ord, Show, Read)
 
 vPosition = accessor vPosition_ $ \x s -> s { vPosition_ = x }
-vEnd      = accessor vEnd_ $ \x s -> s { vEnd_ = x }
-vTempos   = accessor vTempos_ $ \x s -> s { vTempos_ = x }
-vDrums    = accessor vDrums_ $ \x s -> s { vDrums_ = x }
+vEnd      = accessor vEnd_      $ \x s -> s { vEnd_      = x }
+vTempos   = accessor vTempos_   $ \x s -> s { vTempos_   = x }
+vDrums    = accessor vDrums_    $ \x s -> s { vDrums_    = x }
 vTimeSigs = accessor vTimeSigs_ $ \x s -> s { vTimeSigs_ = x }
-vLines    = accessor vLines_ $ \x s -> s { vLines_ = x }
+vLines    = accessor vLines_    $ \x s -> s { vLines_    = x }
 
 fromSeconds :: Seconds -> Prog Position
 fromSeconds secs = do
@@ -82,12 +82,12 @@ data Surfaces = Surfaces
   , vNowLine_    :: Surface
   } deriving (Eq, Ord, Show)
 
-vScreen     = accessor vScreen_ $ \x s -> s { vScreen_ = x }
-vNoteSheet  = accessor vNoteSheet_ $ \x s -> s { vNoteSheet_ = x }
+vScreen     = accessor vScreen_     $ \x s -> s { vScreen_     = x }
+vNoteSheet  = accessor vNoteSheet_  $ \x s -> s { vNoteSheet_  = x }
 vBackground = accessor vBackground_ $ \x s -> s { vBackground_ = x }
-vStaff      = accessor vStaff_ $ \x s -> s { vStaff_ = x }
-vBeatLines  = accessor vBeatLines_ $ \x s -> s { vBeatLines_ = x }
-vNowLine    = accessor vNowLine_ $ \x s -> s { vNowLine_ = x }
+vStaff      = accessor vStaff_      $ \x s -> s { vStaff_      = x }
+vBeatLines  = accessor vBeatLines_  $ \x s -> s { vBeatLines_  = x }
+vNowLine    = accessor vNowLine_    $ \x s -> s { vNowLine_    = x }
 
 data Sources = Sources
   { vAudioStart_ :: Float
@@ -97,9 +97,9 @@ data Sources = Sources
   } deriving (Eq, Ord, Show)
 
 vAudioStart = accessor vAudioStart_ $ \x s -> s { vAudioStart_ = x }
-vDrumAudio  = accessor vDrumAudio_ $ \x s -> s { vDrumAudio_ = x }
-vSongAudio  = accessor vSongAudio_ $ \x s -> s { vSongAudio_ = x }
-vClick      = accessor vClick_ $ \x s -> s { vClick_ = x }
+vDrumAudio  = accessor vDrumAudio_  $ \x s -> s { vDrumAudio_  = x }
+vSongAudio  = accessor vSongAudio_  $ \x s -> s { vSongAudio_  = x }
+vClick      = accessor vClick_      $ \x s -> s { vClick_      = x }
 
 allSources :: Prog [Source]
 allSources = do
