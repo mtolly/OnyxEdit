@@ -101,12 +101,15 @@ vDrumAudio  = accessor vDrumAudio_  $ \x s -> s { vDrumAudio_  = x }
 vSongAudio  = accessor vSongAudio_  $ \x s -> s { vSongAudio_  = x }
 vClick      = accessor vClick_      $ \x s -> s { vClick_      = x }
 
+-- | Gets all the audio sources referenced by the program state.
 allSources :: Prog [Source]
 allSources = do
   (dl, dr) <- A.get $ vDrumAudio . vSources
   (sl, sr) <- A.get $ vSongAudio . vSources
   return [dl, dr, sl, sr]
 
+-- | A collection of empty tracks. The only events are a 120 BPM tempo and a
+-- 4/4 time signature at position zero.
 emptyTracks :: Tracks
 emptyTracks = Tracks
   { vTempos_   = Map.singleton (Both 0 0) 2
@@ -120,12 +123,15 @@ emptyTracks = Tracks
 clearAll :: Prog ()
 clearAll = A.set vTracks emptyTracks
 
+-- | Loads a drum note track. The time of all positions is calculated from the
+-- current tempo map.
 loadDrums :: Map.Map Beats (Set.Set Note) -> Prog ()
 loadDrums drms = do
   tmps <- A.get $ vTempos . vTracks
   let drms' = positionTrack tmps drms
   A.set (vDrums . vTracks) drms'
 
+-- | Loads a new tempo map. The time of any existing positions is recalculated.
 loadTempos :: Map.Map Beats BPS -> Prog ()
 loadTempos tmps = let
   tmps' = positionTempos tmps
@@ -139,6 +145,7 @@ loadTempos tmps = let
     , vLines    ^: Map.mapKeysMonotonic toBoth
     ]
 
+-- | Loads a new set of time signatures, and recalculates measure/beat lines.
 loadTimeSigs :: Map.Map Beats (Int, Beats) -> Prog ()
 loadTimeSigs sigs = do
   tmps <- A.get $ vTempos . vTracks
@@ -158,6 +165,8 @@ makeLines' dvn sigs end = case sigs of
         (btsNext, _) : _ | bts' >= btsNext -> makeLines' dvn sigs' end
         _ -> makeLines' dvn ((bts', sig) : sigs') end
 
+-- | Uses the current time signature map and division setting to calculate where
+-- measure, beat, and sub-beat lines should go.
 makeLines :: Prog ()
 makeLines = do
   sigs <- fmap Map.toAscList $ A.get $ vTimeSigs . vTracks
@@ -178,12 +187,16 @@ makeMeasure dvn start (mult, unit) = let
   measure = Map.singleton start Measure
   in measure `Map.union` beats `Map.union` subbeats
 
+-- | Sets the play speed, including the speed of all audio sources.
+-- To avoid audio sources becoming desynchronized, this should be done paused.
 setSpeed :: Rational -> Prog ()
 setSpeed spd = do
   A.set vPlaySpeed spd
   srcs <- allSources
   liftIO $ forM_ srcs $ \src -> pitch src $= realToFrac spd
 
+-- | Sets the time offset, including the offset of all audio sources.
+-- To avoid audio sources becoming desynchronized, this should be done paused.
 setPosition :: Position -> Prog ()
 setPosition pos = do
   strt <- A.get $ vAudioStart . vSources
@@ -192,13 +205,14 @@ setPosition pos = do
   srcs <- allSources
   liftIO $ forM_ srcs $ \src -> secOffset src $= pos'
 
+-- | Sets the end of the track. Also sets the current position if it is beyond
+-- the new end point.
 setEnd :: Position -> Prog ()
 setEnd end = do
-  pos <- A.get $ vPosition . vTracks
-  A.modify vTracks $ foldr (.) id
-    [ vPosition ^= min pos end
-    , vEnd      ^= end
-    ]
+  A.set    (vEnd      . vTracks) end
+  A.modify (vPosition . vTracks) $ min end
 
+-- | Changes the play speed, including the speed of all audio sources.
+-- To avoid audio sources becoming desynchronized, this should be done paused.
 modifySpeed :: (Rational -> Rational) -> Prog ()
 modifySpeed f = A.get vPlaySpeed >>= setSpeed . f

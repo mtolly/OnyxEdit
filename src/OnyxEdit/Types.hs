@@ -24,7 +24,9 @@ type Seconds = Rational
 type Beats   = Rational
 type BPS     = Rational
 
--- | A position expressed in either real time or musical time.
+-- | A position expressed in real time and/or musical time. The purpose of this
+-- type is to make a mapping of positions to events, and then look up positions
+-- in that mapping using either seconds or beats.
 data Position
   = Both Seconds Beats
   | Seconds Seconds
