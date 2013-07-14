@@ -21,17 +21,16 @@ data Program = Program
   { vSurfaces   :: Surfaces
   , vSources    :: Sources
   , vTracks     :: Tracks
-  , vPosition   :: Position
-  , vEnd        :: Position
   , vResolution :: Int -- ^ Zoom level, in pixels (width) per second of time
-  , vPlaying    :: Bool -- ^ Is audio currently playing?
-  , vPlaySpeed  :: Rational
-  , vDivision   :: Beats -- ^ The beat fraction that creates sub-beat lines.
+  , vPlaySpeed  :: Rational -- ^ 1 = normal speed
+  , vDivision   :: Beats -- ^ Sub-beat lines appear at this interval
   , vMetronome  :: Bool
   } deriving (Eq, Ord, Show)
 
 data Tracks = Tracks
-  { vTempos   :: Map.Map Position BPS
+  { vPosition :: Position
+  , vEnd      :: Position
+  , vTempos   :: Map.Map Position BPS
   , vDrums    :: Map.Map Position (Set.Set Note)
   , vTimeSigs :: Map.Map Position (Int, Beats)
   , vLines    :: Map.Map Position Line
@@ -80,14 +79,12 @@ emptyTracks = Tracks
   , vDrums    = Map.empty
   , vTimeSigs = Map.singleton (Both 0 0) (4, 1)
   , vLines    = Map.empty
-  }
-
-clearAll :: Prog ()
-clearAll = modify $ \prog -> prog
-  { vTracks   = emptyTracks
   , vPosition = Both 0 0
   , vEnd      = Both 0 0
   }
+
+clearAll :: Prog ()
+clearAll = modify $ \prog -> prog { vTracks = emptyTracks }
 
 loadDrums :: Map.Map Beats (Set.Set Note) -> Prog ()
 loadDrums drms = do
@@ -102,10 +99,10 @@ loadTempos tmps = let
   in modify $ \prog -> let
     trks = vTracks prog
     in prog
-      { vPosition = toBoth $ vPosition prog
-      , vEnd      = toBoth $ vEnd prog
-      , vTracks   = trks
-        { vTempos   = tmps'
+      { vTracks = trks
+        { vPosition = toBoth $ vPosition trks
+        , vEnd      = toBoth $ vEnd trks
+        , vTempos   = tmps'
         , vDrums    = Map.mapKeysMonotonic toBoth $ vDrums trks
         , vTimeSigs = Map.mapKeysMonotonic toBoth $ vTimeSigs trks
         , vLines    = Map.mapKeysMonotonic toBoth $ vLines trks
@@ -135,7 +132,7 @@ makeLines :: Prog ()
 makeLines = do
   sigs <- fmap Map.toAscList $ gets $ vTimeSigs . vTracks
   dvn <- gets vDivision
-  end <- gets vEnd
+  end <- gets $ vEnd . vTracks
   let btLns = makeLines' dvn (map (first toBeats) sigs) (toBeats end)
   posLns <- forM btLns $ runKleisli $ first $ Kleisli $ positionBoth . Beats
   modify $ \prog ->
@@ -162,9 +159,19 @@ setPosition :: Position -> Prog ()
 setPosition pos = do
   strt <- gets $ vAudioStart . vSources
   let pos' = strt + realToFrac (toSeconds pos)
-  modify $ \prog -> prog { vPosition = pos }
+  modify $ \prog -> prog { vTracks = (vTracks prog) { vPosition = pos } }
   srcs <- allSources
   liftIO $ forM_ srcs $ \src -> secOffset src $= pos'
+
+setEnd :: Position -> Prog ()
+setEnd end = do
+  pos <- gets $ vPosition . vTracks
+  modify $ \prog -> prog
+    { vTracks = (vTracks prog)
+      { vPosition = min pos end
+      , vEnd      = end
+      }
+    }
 
 setResolution :: Int -> Prog ()
 setResolution res = modify $ \prog -> prog { vResolution = res }

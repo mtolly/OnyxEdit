@@ -38,7 +38,7 @@ apply x y src dst = blitSurface src Nothing dst (Just offset)
 
 timeToX :: Seconds -> Prog Int
 timeToX pos = do
-  now <- gets vPosition
+  now <- gets $ vPosition . vTracks
   pps <- gets vResolution
   return $ 150 + floor ((pos - toSeconds now) * fromIntegral pps)
 
@@ -74,8 +74,8 @@ drawVisibleNotes ((pos, note) : pns) = do
 
 drawNotes :: Prog ()
 drawNotes = do
-  notes <- gets $ vDrums . vTracks
-  now <- gets vPosition
+  notes <- gets $ vDrums    . vTracks
+  now   <- gets $ vPosition . vTracks
   case Map.splitLookup now notes of
     (lt, eq, gt) -> do
       drawLess lt

@@ -49,8 +49,7 @@ main = withInit [InitTimer, InitVideo] $ do
   [midPath, drumPath, songPath] <- getArgs
   (srcDrumL, srcDrumR) <- loadStereo16WAV drumPath
   (srcSongL, srcSongR) <- loadStereo16WAV songPath
-  clkPath <- getDataFileName "click.wav"
-  srcClick <- loadMono16WAV clkPath
+  srcClick <- getDataFileName "click.wav" >>= loadMono16WAV
 
   -- Load MIDI
   mid <- Load.fromFile midPath
@@ -73,10 +72,7 @@ main = withInit [InitTimer, InitVideo] $ do
         { vSurfaces   = surfaces
         , vSources    = sources
         , vTracks     = undefined
-        , vPosition   = undefined
-        , vEnd        = undefined
         , vResolution = 200
-        , vPlaying    = False
         , vPlaySpeed  = 1
         , vDivision   = 1/4
         , vMetronome  = False
@@ -118,12 +114,12 @@ toggleNote n pos = do
               Set.filter (null . intersect occupied . staffLines) notes
 
 toggleNow :: Note -> Prog ()
-toggleNow n = gets vPosition >>= toggleNote n
+toggleNow n = gets (vPosition . vTracks) >>= toggleNote n
 
 toggleNearest :: Note -> Prog ()
 toggleNearest n = do
-  pos <- gets vPosition
-  lns <- gets $ vLines . vTracks
+  pos <- gets $ vPosition . vTracks
+  lns <- gets $ vLines    . vTracks
   case (Map.lookupLE pos lns, Map.lookupGT pos lns) of
     (Just (k1, _), Just (k2, _)) -> toggleNote n $ let
       [secNow, sec1, sec2] = map toSeconds [pos, k1, k2]
@@ -198,14 +194,14 @@ loopPaused = do
       _ -> loopPaused
     MouseButtonDown _ _ btn -> case btn of
       ButtonWheelDown -> do
-        pos <- gets vPosition
-        lns <- gets $ vLines . vTracks
+        pos <- gets $ vPosition . vTracks
+        lns <- gets $ vLines    . vTracks
         maybe (return ()) (setPosition . fst) $ Map.lookupGT pos lns
         draw
         loopPaused
       ButtonWheelUp -> do
-        pos <- gets vPosition
-        lns <- gets $ vLines . vTracks
+        pos <- gets $ vPosition . vTracks
+        lns <- gets $ vLines    . vTracks
         maybe (return ()) (setPosition . fst) $ Map.lookupLT pos lns
         draw
         loopPaused
@@ -286,7 +282,7 @@ loopPlaying = do
       _ -> loopPlaying
     MouseButtonDown _ _ btn -> case btn of
       ButtonWheelDown -> do
-        pos <- gets vPosition
+        pos <- gets $ vPosition . vTracks
         lns <- gets $ vLines . vTracks
         case Map.splitLookup pos lns of
           (_, _, gt) -> case reverse $ take 2 $ Map.toAscList gt of
@@ -294,7 +290,7 @@ loopPlaying = do
             []         -> return ()
         loopPlaying
       ButtonWheelUp -> do
-        pos <- gets vPosition
+        pos <- gets $ vPosition . vTracks
         lns <- gets $ vLines . vTracks
         case Map.splitLookup pos lns of
           (lt, _, _) -> case reverse $ take 3 $ Map.toDescList lt of
@@ -313,7 +309,7 @@ playAll  = allSources >>= liftIO . play
 -- Also triggers metronome sounds, if we passed a bar line.
 updatePlaying :: Prog ()
 updatePlaying = do
-  posOld <- gets vPosition
+  posOld <- gets $ vPosition . vTracks
   lns <- gets $ vLines . vTracks
   srcs <- allSources
   secNew <- case srcs of
@@ -328,11 +324,11 @@ updatePlaying = do
     -- ticks/position pair.
     []      -> undefined
   posNew <- positionBoth $ Seconds secNew
-  modify $ \prog -> prog { vPosition = posNew }
+  modify $ \prog -> prog { vTracks = (vTracks prog) { vPosition = posNew } }
   met <- gets vMetronome
   -- Search the space in [posOld, posNew) for a Measure/Beat line.
   -- If so, trigger a metronome sound if the metronome is on.
-  when met $ case Map.splitLookup posOld lns of
+  when (met && posNew > posOld) $ case Map.splitLookup posOld lns of
     (_, eq, gt) -> case Map.splitLookup posNew gt of
       (lt, _, _) -> let
         search = maybe id (:) eq $ Map.elems lt

@@ -14,7 +14,6 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
 
 import Control.Monad
-import Control.Monad.Trans.State
 import Data.Maybe
 
 import OnyxEdit.Types
@@ -100,7 +99,7 @@ loadMIDI f = case f of
     in do
       clearAll
       end <- positionBoth $ Beats $ lastPos + 4
-      modify $ \prog -> prog { vEnd = end }
+      setEnd end
       maybe (return ()) midiTempos firstTrk
       maybe (return ()) midiTimeSigs firstTrk
       maybe (return ()) midiDrums drumTrk
