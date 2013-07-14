@@ -3,6 +3,9 @@ module OnyxEdit.Draw
 ( draw
 ) where
 
+import Prelude hiding ((.), id)
+import Control.Category
+
 import Graphics.UI.SDL hiding (flip)
 import qualified Graphics.UI.SDL as SDL
 
@@ -10,8 +13,10 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 import Control.Monad
-import Control.Monad.Trans.State
 import Control.Monad.IO.Class
+
+--import Data.Accessor
+import qualified Data.Accessor.Monad.Trans.State as A
 
 import OnyxEdit.Types
 import OnyxEdit.Program
@@ -38,15 +43,15 @@ apply x y src dst = blitSurface src Nothing dst (Just offset)
 
 timeToX :: Seconds -> Prog Int
 timeToX pos = do
-  now <- gets $ vPosition . vTracks
-  pps <- gets vResolution
+  now <- A.get $ vPosition . vTracks
+  pps <- A.get vResolution
   return $ 150 + floor ((pos - toSeconds now) * fromIntegral pps)
 
 drawLine :: Position -> Line -> Prog ()
 drawLine pos l = void $ do
   x <- timeToX $ toSeconds pos
-  scrn <- gets $ vScreen    . vSurfaces
-  surf <- gets $ vBeatLines . vSurfaces
+  scrn <- A.get $ vScreen    . vSurfaces
+  surf <- A.get $ vBeatLines . vSurfaces
   let clip = Just $ case l of
         Measure -> Rect 0  0 30 125
         Beat    -> Rect 30 0 30 125
@@ -56,8 +61,8 @@ drawLine pos l = void $ do
 
 drawNote :: Position -> Note -> Prog Int
 drawNote pos note = do
-  surf <- gets $ vNoteSheet . vSurfaces
-  scrn <- gets $ vScreen . vSurfaces
+  surf <- A.get $ vNoteSheet . vSurfaces
+  scrn <- A.get $ vScreen . vSurfaces
   x <- timeToX $ toSeconds pos
   let (clipX, clipY) = noteSprite note
       clip = Just $ Rect clipX clipY 30 125
@@ -74,8 +79,8 @@ drawVisibleNotes ((pos, note) : pns) = do
 
 drawNotes :: Prog ()
 drawNotes = do
-  notes <- gets $ vDrums    . vTracks
-  now   <- gets $ vPosition . vTracks
+  notes <- A.get $ vDrums    . vTracks
+  now   <- A.get $ vPosition . vTracks
   case Map.splitLookup now notes of
     (lt, eq, gt) -> do
       drawLess lt
@@ -89,22 +94,22 @@ drawNotes = do
 
 drawBG :: Prog ()
 drawBG = void $ do
-  scrn <- gets $ vScreen     . vSurfaces
-  bg   <- gets $ vBackground . vSurfaces
+  scrn <- A.get $ vScreen     . vSurfaces
+  bg   <- A.get $ vBackground . vSurfaces
   liftIO $ apply 0 0 bg scrn
 
 drawLines :: Prog ()
-drawLines = gets (vLines . vTracks) >>= mapM_ (uncurry drawLine) . Map.toList
+drawLines = A.get (vLines . vTracks) >>= mapM_ (uncurry drawLine) . Map.toList
 
 drawStaff :: Prog ()
 drawStaff = do
-  scrn <- gets $ vScreen  . vSurfaces
-  now  <- gets $ vNowLine . vSurfaces
-  stf  <- gets $ vStaff   . vSurfaces
+  scrn <- A.get $ vScreen  . vSurfaces
+  now  <- A.get $ vNowLine . vSurfaces
+  stf  <- A.get $ vStaff   . vSurfaces
   void $ liftIO $ apply 0          100 stf scrn
   void $ liftIO $ apply (150 - 15) 0   now scrn
 
 draw :: Prog ()
 draw = do
   drawBG >> drawLines >> drawStaff >> drawNotes
-  gets (vScreen . vSurfaces) >>= liftIO . SDL.flip
+  A.get (vScreen . vSurfaces) >>= liftIO . SDL.flip

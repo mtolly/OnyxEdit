@@ -20,6 +20,8 @@ Executable onyxedit
                     , midi
                     , event-list
                     , non-negative
+                    , data-accessor
+                    , data-accessor-transformers
   Main-Is:          main.hs
   Hs-Source-Dirs:   src
   Other-Modules:    Paths_OnyxEdit

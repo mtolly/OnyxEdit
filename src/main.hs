@@ -1,5 +1,8 @@
 module Main (main) where
 
+import Prelude hiding ((.), id)
+import Control.Category
+
 import Graphics.UI.SDL hiding (flip)
 import Graphics.UI.SDL.Image
 
@@ -20,6 +23,9 @@ import Control.Monad.IO.Class
 
 import System.Exit
 import System.Environment (getArgs)
+
+--import Data.Accessor
+import qualified Data.Accessor.Monad.Trans.State as A
 
 import Paths_OnyxEdit
 import OnyxEdit.Types
@@ -55,27 +61,27 @@ main = withInit [InitTimer, InitVideo] $ do
   mid <- Load.fromFile midPath
 
   let surfaces = Surfaces
-        { vScreen     = scrn
-        , vNoteSheet  = gemSheet
-        , vBackground = bgImage
-        , vStaff      = staffImage
-        , vBeatLines  = beat
-        , vNowLine    = now
+        { vScreen_     = scrn
+        , vNoteSheet_  = gemSheet
+        , vBackground_ = bgImage
+        , vStaff_      = staffImage
+        , vBeatLines_  = beat
+        , vNowLine_    = now
         }
       sources = Sources
-        { vAudioStart = 39.726
-        , vDrumAudio  = (srcDrumL, srcDrumR)
-        , vSongAudio  = (srcSongL, srcSongR)
-        , vClick      = srcClick
+        { vAudioStart_ = 39.726
+        , vDrumAudio_  = (srcDrumL, srcDrumR)
+        , vSongAudio_  = (srcSongL, srcSongR)
+        , vClick_      = srcClick
         }
       prog = Program
-        { vSurfaces   = surfaces
-        , vSources    = sources
-        , vTracks     = undefined
-        , vResolution = 200
-        , vPlaySpeed  = 1
-        , vDivision   = 1/4
-        , vMetronome  = False
+        { vSurfaces_   = surfaces
+        , vSources_    = sources
+        , vTracks_     = undefined
+        , vResolution_ = 200
+        , vPlaySpeed_  = 1
+        , vDivision_   = 1/4
+        , vMetronome_  = False
         }
 
   evalStateT (clearAll >> loadMIDI mid >> draw >> loopPaused) prog
@@ -99,27 +105,24 @@ staffLines n = case n of
   Crash  ybg  -> [2 + fromEnum ybg]
 
 toggleNote :: Note -> Position -> Prog ()
-toggleNote n pos = do
-  drms <- gets $ vDrums . vTracks
-  let drms' = Map.alter f pos drms
-  modify $ \prog -> prog { vTracks = (vTracks prog) { vDrums = drms' } }
-  where f Nothing = Just $ Set.singleton n
-        f (Just notes) = if Set.member n notes
-          then if Set.size notes == 1
-            then Nothing
-            else Just $ Set.delete n notes
-          else let
-            occupied = staffLines n
-            in Just $ Set.insert n $
-              Set.filter (null . intersect occupied . staffLines) notes
+toggleNote n pos = A.modify (vDrums . vTracks) $ Map.alter f pos where
+  f Nothing = Just $ Set.singleton n
+  f (Just notes) = if Set.member n notes
+    then if Set.size notes == 1
+      then Nothing
+      else Just $ Set.delete n notes
+    else let
+      occupied = staffLines n
+      in Just $ Set.insert n $
+        Set.filter (null . intersect occupied . staffLines) notes
 
 toggleNow :: Note -> Prog ()
-toggleNow n = gets (vPosition . vTracks) >>= toggleNote n
+toggleNow n = A.get (vPosition . vTracks) >>= toggleNote n
 
 toggleNearest :: Note -> Prog ()
 toggleNearest n = do
-  pos <- gets $ vPosition . vTracks
-  lns <- gets $ vLines    . vTracks
+  pos <- A.get $ vPosition . vTracks
+  lns <- A.get $ vLines    . vTracks
   case (Map.lookupLE pos lns, Map.lookupGT pos lns) of
     (Just (k1, _), Just (k2, _)) -> toggleNote n $ let
       [secNow, sec1, sec2] = map toSeconds [pos, k1, k2]
@@ -138,39 +141,39 @@ loopPaused = do
   case evt of
     Quit -> liftIO $ endContext >> exitSuccess
     KeyDown (Keysym k mods _) -> let
-      hihat = if elem KeyModLeftShift mods then HihatC else HihatO
-      hit   = if elem KeyModLeftCtrl  mods then Ghost  else Normal
+      hihat = if KeyModLeftShift `elem` mods then HihatC else HihatO
+      hit   = if KeyModLeftCtrl  `elem` mods then Ghost  else Normal
       in case k of
       SDLK_UP -> modifyResolution (+ 20) >> draw >> loopPaused
       SDLK_DOWN -> modifyResolution (\r -> max 0 $ r - 20) >> draw >> loopPaused
       SDLK_LEFT -> modifySpeed (\spd -> max 0.1 $ spd - 0.1) >> loopPaused
       SDLK_RIGHT -> modifySpeed (\spd -> min 2 $ spd + 0.1) >> loopPaused
       SDLK_1 -> do
-        (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
+        (srcDrumL, srcDrumR) <- A.get $ vDrumAudio . vSources
         forM_ [srcDrumL, srcDrumR] toggleSource
         loopPaused
       SDLK_BACKQUOTE -> do
-        (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
+        (srcSongL, srcSongR) <- A.get $ vSongAudio . vSources
         forM_ [srcSongL, srcSongR] toggleSource
         loopPaused
       SDLK_BACKSPACE -> setPosition (Both 0 0) >> draw >> loopPaused
       SDLK_TAB -> do
-        modify $ \prog -> prog { vMetronome = not $ vMetronome prog }
+        A.modify vMetronome not
         loopPaused
       SDLK_q -> do
-        dvn <- gets vDivision
+        dvn <- A.get vDivision
         case (numerator dvn, denominator dvn) of
           (1, d) -> do
-            modify $ \prog -> prog { vDivision = 1 % (d + 1) }
+            A.set vDivision $ 1 % (d + 1)
             makeLines
           _      -> return ()
         draw
         loopPaused
       SDLK_a -> do
-        dvn <- gets vDivision
+        dvn <- A.get vDivision
         case (numerator dvn, denominator dvn) of
           (1, d) | d >= 2 -> do
-            modify $ \prog -> prog { vDivision = 1 % (d - 1) }
+            A.set vDivision $ 1 % (d - 1)
             makeLines
           _               -> return ()
         draw
@@ -194,14 +197,14 @@ loopPaused = do
       _ -> loopPaused
     MouseButtonDown _ _ btn -> case btn of
       ButtonWheelDown -> do
-        pos <- gets $ vPosition . vTracks
-        lns <- gets $ vLines    . vTracks
+        pos <- A.get $ vPosition . vTracks
+        lns <- A.get $ vLines    . vTracks
         maybe (return ()) (setPosition . fst) $ Map.lookupGT pos lns
         draw
         loopPaused
       ButtonWheelUp -> do
-        pos <- gets $ vPosition . vTracks
-        lns <- gets $ vLines    . vTracks
+        pos <- A.get $ vPosition . vTracks
+        lns <- A.get $ vLines    . vTracks
         maybe (return ()) (setPosition . fst) $ Map.lookupLT pos lns
         draw
         loopPaused
@@ -220,8 +223,8 @@ loopPlaying = do
   case evt of
     Quit -> liftIO $ endContext >> exitSuccess
     KeyDown (Keysym k mods _) -> let
-      hihat = if elem KeyModLeftShift mods then HihatC else HihatO
-      hit   = if elem KeyModLeftCtrl  mods then Ghost  else Normal
+      hihat = if KeyModLeftShift `elem` mods then HihatC else HihatO
+      hit   = if KeyModLeftCtrl  `elem` mods then Ghost  else Normal
       in case k of
       SDLK_UP -> modifyResolution (+ 20) >> draw >> loopPlaying
       SDLK_DOWN -> modifyResolution (\r -> max 0 $ r - 20) >> draw >> loopPlaying
@@ -236,30 +239,30 @@ loopPlaying = do
         playAll
         loopPlaying
       SDLK_1 -> do
-        (srcDrumL, srcDrumR) <- gets $ vDrumAudio . vSources
+        (srcDrumL, srcDrumR) <- A.get $ vDrumAudio . vSources
         forM_ [srcDrumL, srcDrumR] toggleSource
         loopPlaying
       SDLK_BACKQUOTE -> do
-        (srcSongL, srcSongR) <- gets $ vSongAudio . vSources
+        (srcSongL, srcSongR) <- A.get $ vSongAudio . vSources
         forM_ [srcSongL, srcSongR] toggleSource
         loopPlaying
       SDLK_BACKSPACE -> pauseAll >> setPosition (Both 0 0) >> playAll >> loopPlaying
       SDLK_TAB -> do
-        modify $ \prog -> prog { vMetronome = not $ vMetronome prog }
+        A.modify vMetronome not
         loopPlaying
       SDLK_q -> do
-        dvn <- gets vDivision
+        dvn <- A.get vDivision
         case (numerator dvn, denominator dvn) of
           (1, d) -> do
-            modify $ \prog -> prog { vDivision = 1 % (d + 1) }
+            A.set vDivision $ 1 % (d + 1)
             makeLines
           _      -> return ()
         loopPlaying
       SDLK_a -> do
-        dvn <- gets vDivision
+        dvn <- A.get vDivision
         case (numerator dvn, denominator dvn) of
           (1, d) | d >= 2 -> do
-            modify $ \prog -> prog { vDivision = 1 % (d - 1) }
+            A.set vDivision $ 1 % (d - 1)
             makeLines
           _               -> return ()
         loopPlaying
@@ -282,16 +285,16 @@ loopPlaying = do
       _ -> loopPlaying
     MouseButtonDown _ _ btn -> case btn of
       ButtonWheelDown -> do
-        pos <- gets $ vPosition . vTracks
-        lns <- gets $ vLines . vTracks
+        pos <- A.get $ vPosition . vTracks
+        lns <- A.get $ vLines . vTracks
         case Map.splitLookup pos lns of
           (_, _, gt) -> case reverse $ take 2 $ Map.toAscList gt of
             (k, _) : _ -> setPosition k
             []         -> return ()
         loopPlaying
       ButtonWheelUp -> do
-        pos <- gets $ vPosition . vTracks
-        lns <- gets $ vLines . vTracks
+        pos <- A.get $ vPosition . vTracks
+        lns <- A.get $ vLines . vTracks
         case Map.splitLookup pos lns of
           (lt, _, _) -> case reverse $ take 3 $ Map.toDescList lt of
             (k, _) : _ -> setPosition k
@@ -309,23 +312,23 @@ playAll  = allSources >>= liftIO . play
 -- Also triggers metronome sounds, if we passed a bar line.
 updatePlaying :: Prog ()
 updatePlaying = do
-  posOld <- gets $ vPosition . vTracks
-  lns <- gets $ vLines . vTracks
+  posOld <- A.get $ vPosition . vTracks
+  lns <- A.get $ vLines . vTracks
   srcs <- allSources
   secNew <- case srcs of
     -- If there is an audio source: get our current position by copying the
     -- source's position. TODO: make sure the audio hasn't ended?
     src : _ -> do
       t <- liftIO $ OpenAL.get $ secOffset src
-      a <- gets $ vAudioStart . vSources
+      a <- A.get $ vAudioStart . vSources
       return $ max 0 $ realToFrac $ t - a
     -- If there is no audio source: TODO: get our current position by finding
     -- the difference in SDL ticks from the place where we last recorded a
     -- ticks/position pair.
     []      -> undefined
   posNew <- positionBoth $ Seconds secNew
-  modify $ \prog -> prog { vTracks = (vTracks prog) { vPosition = posNew } }
-  met <- gets vMetronome
+  A.set (vPosition . vTracks) posNew
+  met <- A.get vMetronome
   -- Search the space in [posOld, posNew) for a Measure/Beat line.
   -- If so, trigger a metronome sound if the metronome is on.
   when (met && posNew > posOld) $ case Map.splitLookup posOld lns of
@@ -333,7 +336,7 @@ updatePlaying = do
       (lt, _, _) -> let
         search = maybe id (:) eq $ Map.elems lt
         in when (any (`elem` [Measure, Beat]) search) $ do
-          clk <- gets $ vClick . vSources
+          clk <- A.get $ vClick . vSources
           liftIO $ stop [clk]
           liftIO $ secOffset clk $= 0
           liftIO $ play [clk]
