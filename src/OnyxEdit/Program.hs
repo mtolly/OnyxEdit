@@ -8,6 +8,7 @@ import Control.Category
 import Graphics.UI.SDL hiding (flip)
 
 import Sound.OpenAL hiding (get)
+import qualified Sound.OpenAL as OpenAL
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -101,7 +102,8 @@ vDrumAudio  = accessor vDrumAudio_  $ \x s -> s { vDrumAudio_  = x }
 vSongAudio  = accessor vSongAudio_  $ \x s -> s { vSongAudio_  = x }
 vClick      = accessor vClick_      $ \x s -> s { vClick_      = x }
 
--- | Gets all the audio sources referenced by the program state.
+-- | Gets all the music audio sources referenced by the program state.
+-- This does not include sound effects such as the metronome.
 allSources :: Prog [Source]
 allSources = do
   (dl, dr) <- A.get $ vDrumAudio . vSources
@@ -216,3 +218,13 @@ setEnd end = do
 -- To avoid audio sources becoming desynchronized, this should be done paused.
 modifySpeed :: (Rational -> Rational) -> Prog ()
 modifySpeed f = A.get vPlaySpeed >>= setSpeed . f
+
+whilePaused :: Prog () -> Prog ()
+whilePaused act = do
+  srcs <- allSources >>= filterM isPlaying
+  liftIO $ pause srcs
+  act
+  liftIO $ play srcs
+  where isPlaying src = do
+          st <- liftIO $ OpenAL.get $ sourceState src
+          return $ st == Playing

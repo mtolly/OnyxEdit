@@ -229,14 +229,10 @@ loopPlaying = do
       SDLK_UP -> A.modify vResolution (+ 20) >> draw >> loopPlaying
       SDLK_DOWN -> A.modify vResolution (\r -> max 0 $ r - 20) >> draw >> loopPlaying
       SDLK_LEFT -> do
-        pauseAll
-        modifySpeed $ \spd -> max 0.1 $ spd - 0.1
-        playAll
+        whilePaused $ modifySpeed $ \spd -> max 0.1 $ spd - 0.1
         loopPlaying
       SDLK_RIGHT -> do
-        pauseAll
-        modifySpeed $ \spd -> min 2 $ spd + 0.1
-        playAll
+        whilePaused $ modifySpeed $ \spd -> min 2 $ spd + 0.1
         loopPlaying
       SDLK_1 -> do
         (srcDrumL, srcDrumR) <- A.get $ vDrumAudio . vSources
@@ -246,7 +242,7 @@ loopPlaying = do
         (srcSongL, srcSongR) <- A.get $ vSongAudio . vSources
         forM_ [srcSongL, srcSongR] toggleSource
         loopPlaying
-      SDLK_BACKSPACE -> pauseAll >> setPosition (Both 0 0) >> playAll >> loopPlaying
+      SDLK_BACKSPACE -> whilePaused (setPosition $ Both 0 0) >> loopPlaying
       SDLK_TAB -> do
         A.modify vMetronome not
         loopPlaying
