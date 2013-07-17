@@ -180,7 +180,7 @@ top = let
     , \c -> openHihat   (col c) (row 2) ! A.class_ "thick yellow"
     , \c -> openHihat   (col c) (row 3) ! A.class_ "thick blue"
     , \c -> openHihat   (col c) (row 4) ! A.class_ "thick green"
-    , \c -> footHihat   (col c) (row 2) ! A.class_ "thick yellow"
+    , \c -> footHihat   (col c) (row 0) ! A.class_ "thick yellow"
     , \c -> ride        (col c) (row 2) ! A.class_ "thick yellow"
     , \c -> ride        (col c) (row 3) ! A.class_ "thick blue"
     , \c -> ride        (col c) (row 4) ! A.class_ "thick green"

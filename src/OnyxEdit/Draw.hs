@@ -28,10 +28,10 @@ noteSprite n = (30 * x, 0) where
     Snare Normal -> 14
     SnareFlam -> 18
     Tom ybg Normal -> 15 + fromEnum ybg
-    HihatF -> 31
+    HihatF -> 33
     HihatC ybg -> 27 + fromEnum ybg
     HihatO ybg -> 30 + fromEnum ybg
-    Ride ybg -> 32 + fromEnum ybg
+    Ride ybg -> 34 + fromEnum ybg
     Crash ybg -> 24 + fromEnum ybg
     Kick Ghost -> 19
     Snare Ghost -> 20

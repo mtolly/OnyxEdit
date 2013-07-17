@@ -7,7 +7,7 @@ Build-Type:         Simple
 Cabal-Version:      >= 1.8
 Category:           Sound
 Data-Dir:           data
-Data-Files:         gems.png, bg.png, staff.png, beat.png, now.png
+Data-Files:         gems.png, bg.png, staff.png, now.png
                     , click.wav
 
 Executable onyxedit
