@@ -48,7 +48,6 @@ main = withInit [InitTimer, InitVideo] $ do
   gemSheet   <- getDataFileName "gems.png"  >>= loadImage
   bgImage    <- getDataFileName "bg.png"    >>= loadImage
   staffImage <- getDataFileName "staff.png" >>= loadImage
-  beat       <- getDataFileName "beat.png"  >>= loadImage
   now        <- getDataFileName "now.png"   >>= loadImage
 
   -- Load audio
@@ -65,7 +64,6 @@ main = withInit [InitTimer, InitVideo] $ do
         , vNoteSheet_  = gemSheet
         , vBackground_ = bgImage
         , vStaff_      = staffImage
-        , vBeatLines_  = beat
         , vNowLine_    = now
         }
       sources = Sources

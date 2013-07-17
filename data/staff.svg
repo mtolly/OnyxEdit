@@ -4,9 +4,9 @@
       stroke-width: 2;
       stroke: black; }
   </style>
-  <line class='staff' x1='0' x2='1000' y1='12.5' y2='12.5'></line>
-  <line class='staff' x1='0' x2='1000' y1='37.5' y2='37.5'></line>
-  <line class='staff' x1='0' x2='1000' y1='62.5' y2='62.5'></line>
-  <line class='staff' x1='0' x2='1000' y1='87.5' y2='87.5'></line>
-  <line class='staff' x1='0' x2='1000' y1='112.5' y2='112.5'></line>
+  <line class='staff' x1='0' x2='1000' y1='13' y2='13'></line>
+  <line class='staff' x1='0' x2='1000' y1='39' y2='39'></line>
+  <line class='staff' x1='0' x2='1000' y1='65' y2='65'></line>
+  <line class='staff' x1='0' x2='1000' y1='91' y2='91'></line>
+  <line class='staff' x1='0' x2='1000' y1='117' y2='117'></line>
 </svg>

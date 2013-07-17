@@ -1,55 +1,13 @@
-<svg height='125' version='1.1' width='840' xmlns='http://www.w3.org/2000/svg'>
-  <style>
-    .thick {
-      stroke-width: 2;
-      stroke: black;
-      stroke-linejoin: round; }
-    
-    .orange {
-      fill: #c8641e; }
-    
-    .red {
-      fill: #c81e1e; }
-    
-    .yellow {
-      fill: #aaaa1e; }
-    
-    .blue {
-      fill: #3c3cc8; }
-    
-    .green {
-      fill: #32c832; }
-    
-    .guide {
-      stroke: magenta;
-      stroke-width: 2; }
-  </style>
-  <rect class='thick orange' height='20' rx='2' ry='2' transform='translate(0 100)' width='20' x='5' y='2.5'></rect>
-  <rect class='thick red' height='20' rx='2' ry='2' transform='translate(30 75)' width='20' x='5' y='2.5'></rect>
-  <rect class='thick yellow' height='20' rx='2' ry='2' transform='translate(60 50)' width='20' x='5' y='2.5'></rect>
-  <rect class='thick blue' height='20' rx='2' ry='2' transform='translate(90 25)' width='20' x='5' y='2.5'></rect>
-  <rect class='thick green' height='20' rx='2' ry='2' transform='translate(120 0)' width='20' x='5' y='2.5'></rect>
-  <circle class='thick yellow' cx='15' cy='12.5' r='10' transform='translate(150 50)'></circle>
-  <circle class='thick blue' cx='15' cy='12.5' r='10' transform='translate(180 25)'></circle>
-  <circle class='thick green' cx='15' cy='12.5' r='10' transform='translate(210 0)'></circle>
-  <polygon class='thick yellow' points='15,2.5 5,12.5 15,22.5 25,12.5' transform='translate(240 50)'></polygon>
-  <polygon class='thick blue' points='15,2.5 5,12.5 15,22.5 25,12.5' transform='translate(270 25)'></polygon>
-  <polygon class='thick green' points='15,2.5 5,12.5 15,22.5 25,12.5' transform='translate(300 0)'></polygon>
-  <polygon class='thick yellow' points='15,2.5 5,7.5 10,12.5 5,17.5 15,22.5 25,17.5 20,12.5 25,7.5' transform='translate(330 50)'></polygon>
-  <polygon class='thick blue' points='15,2.5 5,7.5 10,12.5 5,17.5 15,22.5 25,17.5 20,12.5 25,7.5' transform='translate(360 25)'></polygon>
-  <polygon class='thick green' points='15,2.5 5,7.5 10,12.5 5,17.5 15,22.5 25,17.5 20,12.5 25,7.5' transform='translate(390 0)'></polygon>
-  <rect class='thick orange' height='10' rx='2' ry='2' transform='translate(420 100)' width='10' x='10' y='7.5'></rect>
-  <rect class='thick red' height='10' rx='2' ry='2' transform='translate(450 75)' width='10' x='10' y='7.5'></rect>
-  <rect class='thick yellow' height='10' rx='2' ry='2' transform='translate(480 50)' width='10' x='10' y='7.5'></rect>
-  <rect class='thick blue' height='10' rx='2' ry='2' transform='translate(510 25)' width='10' x='10' y='7.5'></rect>
-  <rect class='thick green' height='10' rx='2' ry='2' transform='translate(540 0)' width='10' x='10' y='7.5'></rect>
-  <polygon class='thick yellow' points='15,7.5 10,12.5 15,17.5 20,12.5' transform='translate(570 100)'></polygon>
-  <rect class='thick red' height='45' rx='2' ry='2' transform='translate(600 50)' width='20' x='5' y='2.5'></rect>
-  <rect class='thick yellow' height='45' rx='2' ry='2' transform='translate(630 25)' width='20' x='5' y='2.5'></rect>
-  <rect class='thick blue' height='45' rx='2' ry='2' transform='translate(660 25)' width='20' x='5' y='2.5'></rect>
-  <rect class='thick blue' height='45' rx='2' ry='2' transform='translate(690 0)' width='20' x='5' y='2.5'></rect>
-  <rect class='thick green' height='45' rx='2' ry='2' transform='translate(720 0)' width='20' x='5' y='2.5'></rect>
-  <polygon class='thick yellow' points='15,2.5 5,22.5 25,22.5' transform='translate(750 50)'></polygon>
-  <polygon class='thick blue' points='15,2.5 5,22.5 25,22.5' transform='translate(780 25)'></polygon>
-  <polygon class='thick green' points='15,2.5 5,22.5 25,22.5' transform='translate(810 0)'></polygon>
-</svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+    "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1110" height="130"><style>.thick  { stroke-width: 2; stroke: black; stroke-linejoin: round }
+.orange { fill: rgb(200, 100, 30 ) }
+.red    { fill: rgb(200, 30 , 30 ) }
+.yellow { fill: rgb(170, 170, 30 ) }
+.blue   { fill: rgb(60 , 60 , 200) }
+.green  { fill: rgb(50 , 200, 50 ) }
+.blackLine { stroke-width: 2; stroke: black }
+.blackLine2 { stroke-width: 2; stroke: black; stroke-linecap: round }
+.grayLine { stroke-width: 2; stroke: rgb(170, 170, 170) }
+</style><line x1="15" x2="15" y1="117" y2="13" class="blackLine" /><line x1="45" x2="45" y1="117" y2="13" class="grayLine" /><line x1="75" x2="75" y1="91" y2="39" class="grayLine" /><line x1="105" x2="114" y1="117" y2="126" class="blackLine2" /><line x1="135" x2="144" y1="91" y2="100" class="blackLine2" /><line x1="165" x2="174" y1="65" y2="74" class="blackLine2" /><line x1="195" x2="204" y1="39" y2="48" class="blackLine2" /><line x1="225" x2="234" y1="13" y2="22" class="blackLine2" /><line x1="255" x2="246" y1="117" y2="126" class="blackLine2" /><line x1="285" x2="276" y1="91" y2="100" class="blackLine2" /><line x1="315" x2="306" y1="65" y2="74" class="blackLine2" /><line x1="345" x2="336" y1="39" y2="48" class="blackLine2" /><line x1="375" x2="366" y1="13" y2="22" class="blackLine2" /><rect width="20" height="20" x="395" y="107" rx="2" ry="2" class="thick orange" /><rect width="20" height="20" x="425" y="81" rx="2" ry="2" class="thick red" /><rect width="20" height="20" x="455" y="55" rx="2" ry="2" class="thick yellow" /><rect width="20" height="20" x="485" y="29" rx="2" ry="2" class="thick blue" /><rect width="20" height="20" x="515" y="3" rx="2" ry="2" class="thick green" /><rect width="20" height="46" x="545" y="55" rx="2" ry="2" class="thick red" /><rect width="10" height="10" x="580" y="112" rx="2" ry="2" class="thick orange" /><rect width="10" height="10" x="610" y="86" rx="2" ry="2" class="thick red" /><rect width="10" height="10" x="640" y="60" rx="2" ry="2" class="thick yellow" /><rect width="10" height="10" x="670" y="34" rx="2" ry="2" class="thick blue" /><rect width="10" height="10" x="700" y="8" rx="2" ry="2" class="thick green" /><circle r="10" cx="735" cy="65" class="thick yellow" /><circle r="10" cx="765" cy="39" class="thick blue" /><circle r="10" cx="795" cy="13" class="thick green" /><polygon points="825,55 815,65 825,75 835,65" class="thick yellow" /><polygon points="855,29 845,39 855,49 865,39" class="thick blue" /><polygon points="885,3 875,13 885,23 895,13" class="thick green" /><polygon points="915,55 905,60 910,65 905,70 915,75 925,70 920,65 925,60" class="thick yellow" /><polygon points="945,29 935,34 940,39 935,44 945,49 955,44 950,39 955,34" class="thick blue" /><polygon points="975,3 965,8 970,13 965,18 975,23 985,18 980,13 985,8" class="thick green" /><polygon points="1005,60 1000,65 1005,70 1010,65" class="thick yellow" /><polygon points="1035,55 1025,75 1045,75" class="thick yellow" /><polygon points="1065,29 1055,49 1075,49" class="thick blue" /><polygon points="1095,3 1085,23 1105,23" class="thick green" /></svg>

@@ -1,9 +1,0 @@
-<svg height='125' version='1.1' width='90' xmlns='http://www.w3.org/2000/svg'>
-  <style>
-    .staff {
-      stroke-width: 2; }
-  </style>
-  <line class='staff' style='stroke: rgb(0, 0, 0)' x1='15' x2='15' y1='12.5' y2='112.5'></line>
-  <line class='staff' style='stroke: rgb(150, 150, 150)' x1='45' x2='45' y1='12.5' y2='112.5'></line>
-  <line class='staff' style='stroke: rgb(150, 150, 150)' x1='75' x2='75' y1='37.5' y2='87.5'></line>
-</svg>

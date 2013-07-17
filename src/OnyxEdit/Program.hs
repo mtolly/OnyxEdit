@@ -79,7 +79,6 @@ data Surfaces = Surfaces
   , vNoteSheet_  :: Surface
   , vBackground_ :: Surface
   , vStaff_      :: Surface
-  , vBeatLines_  :: Surface
   , vNowLine_    :: Surface
   } deriving (Eq, Ord, Show)
 
@@ -87,7 +86,6 @@ vScreen     = accessor vScreen_     $ \x s -> s { vScreen_     = x }
 vNoteSheet  = accessor vNoteSheet_  $ \x s -> s { vNoteSheet_  = x }
 vBackground = accessor vBackground_ $ \x s -> s { vBackground_ = x }
 vStaff      = accessor vStaff_      $ \x s -> s { vStaff_      = x }
-vBeatLines  = accessor vBeatLines_  $ \x s -> s { vBeatLines_  = x }
 vNowLine    = accessor vNowLine_    $ \x s -> s { vNowLine_    = x }
 
 data Sources = Sources

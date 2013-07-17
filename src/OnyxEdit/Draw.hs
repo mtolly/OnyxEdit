@@ -24,18 +24,18 @@ import OnyxEdit.Program
 noteSprite :: Note -> (Int, Int)
 noteSprite n = (30 * x, 0) where
   x = case n of
-    Kick Normal -> 0
-    Snare Normal -> 1
-    SnareFlam -> 20
-    Tom ybg Normal -> 2 + fromEnum ybg
-    HihatF -> 19
-    HihatC ybg -> 8 + fromEnum ybg
-    HihatO ybg -> 11 + fromEnum ybg
-    Ride ybg -> 25 + fromEnum ybg
-    Crash ybg -> 5 + fromEnum ybg
-    Kick Ghost -> 14
-    Snare Ghost -> 15
-    Tom ybg Ghost -> 16 + fromEnum ybg
+    Kick Normal -> 13
+    Snare Normal -> 14
+    SnareFlam -> 18
+    Tom ybg Normal -> 15 + fromEnum ybg
+    HihatF -> 31
+    HihatC ybg -> 27 + fromEnum ybg
+    HihatO ybg -> 30 + fromEnum ybg
+    Ride ybg -> 32 + fromEnum ybg
+    Crash ybg -> 24 + fromEnum ybg
+    Kick Ghost -> 19
+    Snare Ghost -> 20
+    Tom ybg Ghost -> 21 + fromEnum ybg
 
 apply :: Int -> Int -> Surface -> Surface -> IO Bool
 apply x y src dst = blitSurface src Nothing dst (Just offset)
@@ -51,11 +51,11 @@ drawLine :: Position -> Line -> Prog ()
 drawLine pos l = void $ do
   x <- timeToX $ toSeconds pos
   scrn <- A.get $ vScreen    . vSurfaces
-  surf <- A.get $ vBeatLines . vSurfaces
+  surf <- A.get $ vNoteSheet . vSurfaces
   let clip = Just $ case l of
-        Measure -> Rect 0  0 30 125
-        Beat    -> Rect 30 0 30 125
-        SubBeat -> Rect 60 0 30 125
+        Measure -> Rect 0  0 30 (26 * 5)
+        Beat    -> Rect 30 0 30 (26 * 5)
+        SubBeat -> Rect 60 0 30 (26 * 5)
       drawAt = Just $ Rect (x - 15) 100 0 0
   liftIO $ blitSurface surf clip scrn drawAt
 
@@ -65,7 +65,7 @@ drawNote pos note = do
   scrn <- A.get $ vScreen . vSurfaces
   x <- timeToX $ toSeconds pos
   let (clipX, clipY) = noteSprite note
-      clip = Just $ Rect clipX clipY 30 125
+      clip = Just $ Rect clipX clipY 30 (26 * 5)
       drawAt = Just $ Rect (x - 15) 100 0 0
   void $ liftIO $ blitSurface surf clip scrn drawAt
   return x
