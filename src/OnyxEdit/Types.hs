@@ -28,9 +28,9 @@ type BPS     = Rational
 -- type is to make a mapping of positions to events, and then look up positions
 -- in that mapping using either seconds or beats.
 data Position
-  = Both Seconds Beats
-  | Seconds Seconds
-  | Beats Beats
+  = Both    { toSeconds :: Seconds, toBeats :: Beats }
+  | Seconds { toSeconds :: Seconds }
+  | Beats   { toBeats :: Beats }
   deriving (Show, Read)
 
 -- | Comparing two positions will either compare their Seconds values, or their
@@ -51,16 +51,6 @@ instance Ord Position where
 
 instance Eq Position where
   x == y = compare x y == EQ
-
-toSeconds :: Position -> Seconds
-toSeconds (Both s _) = s
-toSeconds (Seconds s) = s
-toSeconds (Beats _) = error "toSeconds: got Beats value"
-
-toBeats :: Position -> Beats
-toBeats (Both _ b) = b
-toBeats (Beats b) = b
-toBeats (Seconds _) = error "toBeats: got Seconds value"
 
 positionTempos :: Map.Map Beats BPS -> Map.Map Position BPS
 positionTempos = Map.fromDistinctAscList . f 0 0 2 . Map.toAscList where
