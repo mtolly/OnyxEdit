@@ -31,11 +31,13 @@ data RB3Drums
   | GemGreen
   | Toms YBG Bool
   | Disco Bool
+  | OpenHihat Bool
   deriving (Eq, Ord, Show, Read)
 
 midiToRB3Drums :: E.T -> Maybe RB3Drums
 midiToRB3Drums evt = case evt of
   E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn p _))) -> case V.fromPitch p of
+    25  -> Just $ OpenHihat True
     96  -> Just GemKick
     97  -> Just GemRed
     98  -> Just GemYellow
@@ -46,6 +48,7 @@ midiToRB3Drums evt = case evt of
     112 -> Just $ Toms Green  True
     _   -> Nothing
   E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p _))) -> case V.fromPitch p of
+    25  -> Just $ OpenHihat   False
     110 -> Just $ Toms Yellow False
     111 -> Just $ Toms Blue   False
     112 -> Just $ Toms Green  False
@@ -60,10 +63,12 @@ data RB3DrumState = DS
   , tomBlue   :: Bool
   , tomGreen  :: Bool
   , discobeat :: Bool
+  , openHihat :: Bool
   } deriving (Eq, Ord, Show, Read)
 
 fromRB3Drums :: Map.Map a [RB3Drums] -> Map.Map a (Set.Set Note)
-fromRB3Drums mp = evalState (traverse go mp) $ DS False False False False where
+fromRB3Drums mp = evalState (traverse go mp) initialState where
+  initialState = DS False False False False False
   go :: [RB3Drums] -> State RB3DrumState (Set.Set Note)
   go evts = do
     forM_ evts $ \evt -> case evt of
@@ -71,23 +76,26 @@ fromRB3Drums mp = evalState (traverse go mp) $ DS False False False False where
       Toms Blue   b -> modify $ \s -> s { tomBlue   = b }
       Toms Green  b -> modify $ \s -> s { tomGreen  = b }
       Disco       b -> modify $ \s -> s { discobeat = b }
+      OpenHihat   b -> modify $ \s -> s { openHihat = b }
       _             -> return ()
     ds <- get
+    let hh = if openHihat ds then HihatO else HihatC
     return $ Set.fromList $ flip mapMaybe evts $ \evt -> case evt of
       GemKick -> Just $ Kick Normal
       GemRed
-        | discobeat ds -> Just $ HihatC Yellow
+        | discobeat ds -> Just $ hh Yellow
         | otherwise    -> Just $ Snare Normal
       GemYellow
         | discobeat ds -> Just $ Snare Normal
         | tomYellow ds -> Just $ Tom Yellow Normal
-        | otherwise    -> Just $ HihatC Yellow
+        | otherwise    -> Just $ hh Yellow
       GemBlue
         | tomBlue ds   -> Just $ Tom Blue Normal
         | otherwise    -> Just $ Ride Blue
       GemGreen
         | tomGreen ds  -> Just $ Tom Green Normal
         | otherwise    -> Just $ Crash Green
+      -- TODO: OpenHihat False without a hihat gem makes a HihatF
       _ -> Nothing
 
 trackToMap :: F.Tempo -> RTB.T F.ElapsedTime a -> Map.Map Beats [a]
