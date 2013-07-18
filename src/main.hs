@@ -51,7 +51,7 @@ main = withInit [InitTimer, InitVideo] $ do
   now        <- getDataFileName "now.png"   >>= loadImage
 
   -- Load audio
-  [midPath, drumPath, songPath] <- getArgs
+  [startTime, midPath, drumPath, songPath] <- getArgs
   (srcDrumL, srcDrumR) <- loadStereo16WAV drumPath
   (srcSongL, srcSongR) <- loadStereo16WAV songPath
   srcClick <- getDataFileName "click.wav" >>= loadMono16WAV
@@ -67,7 +67,7 @@ main = withInit [InitTimer, InitVideo] $ do
         , vNowLine_    = now
         }
       sources = Sources
-        { vAudioStart_ = 39.726
+        { vAudioStart_ = read startTime
         , vDrumAudio_  = (srcDrumL, srcDrumR)
         , vSongAudio_  = (srcSongL, srcSongR)
         , vClick_      = srcClick

@@ -1,2 +1,2 @@
 #!/bin/bash
-onyxedit kitchen.mid drums.wav nodrums.wav
+onyxedit 0 kitchen.mid drums.wav nodrums.wav

@@ -41,14 +41,14 @@ midiToRB3Drums evt = case evt of
     98  -> Just GemYellow
     99  -> Just GemBlue
     100 -> Just GemGreen
-    108 -> Just $ Toms Yellow True
-    109 -> Just $ Toms Blue   True
-    110 -> Just $ Toms Green  True
+    110 -> Just $ Toms Yellow True
+    111 -> Just $ Toms Blue   True
+    112 -> Just $ Toms Green  True
     _   -> Nothing
   E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p _))) -> case V.fromPitch p of
-    108 -> Just $ Toms Yellow False
-    109 -> Just $ Toms Blue   False
-    110 -> Just $ Toms Green  False
+    110 -> Just $ Toms Yellow False
+    111 -> Just $ Toms Blue   False
+    112 -> Just $ Toms Green  False
     _   -> Nothing
   E.MetaEvent (M.TextEvent str) -> case stripPrefix "[mix 3 drums" str of
     Nothing   -> Nothing
