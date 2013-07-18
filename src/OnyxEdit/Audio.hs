@@ -66,8 +66,10 @@ hLoadStereo16WAV h = do
   [bufL, bufR] <- genObjectNames 2
   bufferData bufL $=
     BufferData (MemoryRegion memL $ fromIntegral chanSize) Mono16 44100
+  free memL
   bufferData bufR $=
     BufferData (MemoryRegion memR $ fromIntegral chanSize) Mono16 44100
+  free memR
   [srcL, srcR] <- genObjectNames 2
   buffer srcL $= Just bufL
   buffer srcR $= Just bufR
