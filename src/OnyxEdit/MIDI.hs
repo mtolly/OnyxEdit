@@ -79,24 +79,49 @@ fromRB3Drums mp = evalState (traverse go mp) initialState where
       OpenHihat   b -> modify $ \s -> s { openHihat = b }
       _             -> return ()
     ds <- get
-    let hh = if openHihat ds then HihatO else HihatC
-    return $ Set.fromList $ flip mapMaybe evts $ \evt -> case evt of
-      GemKick -> Just $ Kick Normal
-      GemRed
-        | discobeat ds -> Just $ hh Yellow
-        | otherwise    -> Just $ Snare Normal
-      GemYellow
-        | discobeat ds -> Just $ Snare Normal
-        | tomYellow ds -> Just $ Tom Yellow Normal
-        | otherwise    -> Just $ hh Yellow
-      GemBlue
-        | tomBlue ds   -> Just $ Tom Blue Normal
-        | otherwise    -> Just $ Ride Blue
-      GemGreen
-        | tomGreen ds  -> Just $ Tom Green Normal
-        | otherwise    -> Just $ Crash Green
-      -- TODO: OpenHihat False without a hihat gem makes a HihatF
-      _ -> Nothing
+    let -- gems
+        hasKick   = elem GemKick           evts
+        hasRed    = elem GemRed            evts
+        hasYellow = elem GemYellow         evts
+        hasBlue   = elem GemBlue           evts
+        hasGreen  = elem GemGreen          evts
+        hasClose  = elem (OpenHihat False) evts
+        -- notes
+        kick = do
+          guard hasKick
+          Just $ Kick Normal
+        snare = do
+          guard $ hasRed || (hasYellow && discobeat ds)
+          Just $ Snare Normal
+        yellowHH = do
+          guard $ or
+            [ and [hasYellow, not $ discobeat ds, not $ tomYellow ds]
+            , and [hasRed, discobeat ds]
+            ]
+          Just $ (if openHihat ds then HihatO else HihatC) Yellow
+        yellowTom = do
+          guard $ and [hasYellow, not $ discobeat ds, tomYellow ds]
+          Just $ if hasRed
+            then SnareFlam
+            else Tom Yellow Normal
+        blueGem = do
+          guard hasBlue
+          Just $ if tomBlue ds
+            then Tom Blue Normal
+            else Ride Blue
+        greenGem = do
+          guard hasGreen
+          Just $ if tomGreen ds
+            then Tom Green Normal
+            else Crash Green
+        closeHH = do
+          guard $ and [hasClose, isNothing yellowHH]
+          Just HihatF
+        allGems = catMaybes
+          [ kick, snare, yellowHH, yellowTom
+          , blueGem, greenGem, closeHH
+          ]
+    return $ Set.fromList allGems
 
 trackToMap :: F.Tempo -> RTB.T F.ElapsedTime a -> Map.Map Beats [a]
 trackToMap res = let res' = fromIntegral res
