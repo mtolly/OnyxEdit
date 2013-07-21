@@ -47,7 +47,7 @@ data Tracks = Tracks
   { vPosition_ :: Position
   , vEnd_      :: Position
   , vTempos_   :: Map.Map Position BPS
-  , vDrums_    :: Map.Map Position (Set.Set Note)
+  , vDrums_    :: Map.Map Position (Set.Set DrumEvent)
   , vTimeSigs_ :: Map.Map Position (Int, Beats)
   , vLines_    :: Map.Map Position Line
   } deriving (Eq, Ord, Show, Read)
@@ -125,7 +125,7 @@ clearAll = A.set vTracks emptyTracks
 
 -- | Loads a drum note track. The time of all positions is calculated from the
 -- current tempo map.
-loadDrums :: Map.Map Beats (Set.Set Note) -> Prog ()
+loadDrums :: Map.Map Beats (Set.Set DrumEvent) -> Prog ()
 loadDrums drms = do
   tmps <- A.get $ vTempos . vTracks
   let drms' = positionTrack tmps drms

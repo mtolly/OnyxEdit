@@ -2,7 +2,7 @@ module OnyxEdit.Types where
 
 import qualified Data.Map as Map
 
-data Note
+data DrumEvent
   = Kick Hit
   | Snare Hit
   | SnareFlam -- ^ Red/yellow, a double hit on snare

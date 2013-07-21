@@ -21,7 +21,7 @@ import qualified Data.Accessor.Monad.Trans.State as A
 import OnyxEdit.Types
 import OnyxEdit.Program
 
-noteSprite :: Note -> (Int, Int)
+noteSprite :: DrumEvent -> (Int, Int)
 noteSprite n = (30 * x, 0) where
   x = case n of
     Kick Normal -> 13
@@ -62,7 +62,7 @@ drawLine pos l = do
   return x
 
 -- | Returns the X position that the drawn note was centered at.
-drawNote :: Position -> Note -> Prog Int
+drawNote :: Position -> DrumEvent -> Prog Int
 drawNote pos note = do
   x <- timeToX $ toSeconds pos
   scrn <- A.get $ vScreen    . vSurfaces

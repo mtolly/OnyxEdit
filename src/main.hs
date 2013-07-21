@@ -89,7 +89,7 @@ toggleSource src = liftIO $ do
   g <- OpenAL.get $ sourceGain src
   sourceGain src $= if g > 0.5 then 0 else 1
 
-staffLines :: Note -> [Int]
+staffLines :: DrumEvent -> [Int]
 staffLines n = case n of
   Kick Normal -> [0]
   Kick Ghost  -> [0, -1]
@@ -102,7 +102,7 @@ staffLines n = case n of
   Ride   ybg  -> [2 + fromEnum ybg]
   Crash  ybg  -> [2 + fromEnum ybg]
 
-toggleNote :: Note -> Position -> Prog ()
+toggleNote :: DrumEvent -> Position -> Prog ()
 toggleNote n pos = A.modify (vDrums . vTracks) $ Map.alter f pos where
   f Nothing = Just $ Set.singleton n
   f (Just notes) = if Set.member n notes
@@ -114,10 +114,10 @@ toggleNote n pos = A.modify (vDrums . vTracks) $ Map.alter f pos where
       in Just $ Set.insert n $
         Set.filter (null . intersect occupied . staffLines) notes
 
-toggleNow :: Note -> Prog ()
+toggleNow :: DrumEvent -> Prog ()
 toggleNow n = A.get (vPosition . vTracks) >>= toggleNote n
 
-toggleNearest :: Note -> Prog ()
+toggleNearest :: DrumEvent -> Prog ()
 toggleNearest n = do
   pos <- A.get $ vPosition . vTracks
   lns <- A.get $ vLines    . vTracks

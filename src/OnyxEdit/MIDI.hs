@@ -66,10 +66,10 @@ data RB3DrumState = DS
   , openHihat :: Bool
   } deriving (Eq, Ord, Show, Read)
 
-fromRB3Drums :: Map.Map a [RB3Drums] -> Map.Map a (Set.Set Note)
+fromRB3Drums :: Map.Map a [RB3Drums] -> Map.Map a (Set.Set DrumEvent)
 fromRB3Drums mp = evalState (traverse go mp) initialState where
   initialState = DS False False False False False
-  go :: [RB3Drums] -> State RB3DrumState (Set.Set Note)
+  go :: [RB3Drums] -> State RB3DrumState (Set.Set DrumEvent)
   go evts = do
     forM_ evts $ \evt -> case evt of
       Toms Yellow b -> modify $ \s -> s { tomYellow = b }
