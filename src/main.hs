@@ -23,6 +23,7 @@ import Control.Monad.IO.Class
 
 import System.Exit
 import System.Environment (getArgs)
+import System.IO
 
 --import Data.Accessor
 import qualified Data.Accessor.Monad.Trans.State as A
@@ -37,6 +38,9 @@ import OnyxEdit.Audio
 loadImage :: String -> IO Surface
 loadImage filename = load filename >>= displayFormatAlpha
 
+putErrLn :: String -> IO ()
+putErrLn = hPutStrLn stderr
+
 main :: IO ()
 main = withInit [InitTimer, InitVideo] $ do
 
@@ -44,6 +48,7 @@ main = withInit [InitTimer, InitVideo] $ do
   beginContext
 
   -- Get screen, load sprites
+  putErrLn "Loading images..."
   scrn       <- setVideoMode 1000 480 32 [SWSurface]
   gemSheet   <- getDataFileName "gems.png"  >>= loadImage
   bgImage    <- getDataFileName "bg.png"    >>= loadImage
@@ -51,9 +56,15 @@ main = withInit [InitTimer, InitVideo] $ do
   now        <- getDataFileName "now.png"   >>= loadImage
 
   -- Load audio
-  [startTime, midPath, drumPath, songPath] <- getArgs
+  midPath : drumPath : songPath : restArgs <- getArgs
+  let startTime = case restArgs of
+        []     -> 0
+        st : _ -> read st
+  putErrLn "Loading drums audio..."
   (srcDrumL, srcDrumR) <- loadStereo16WAV drumPath
+  putErrLn "Loading backing audio..."
   (srcSongL, srcSongR) <- loadStereo16WAV songPath
+  putErrLn "Loading misc. sounds..."
   srcClick <- getDataFileName "click.wav" >>= loadMono16WAV
 
   -- Load MIDI
@@ -67,7 +78,7 @@ main = withInit [InitTimer, InitVideo] $ do
         , vNowLine_    = now
         }
       sources = Sources
-        { vAudioStart_ = read startTime
+        { vAudioStart_ = startTime
         , vDrumAudio_  = (srcDrumL, srcDrumR)
         , vSongAudio_  = (srcSongL, srcSongR)
         , vClick_      = srcClick
@@ -82,7 +93,13 @@ main = withInit [InitTimer, InitVideo] $ do
         , vMetronome_  = False
         }
 
-  evalStateT (clearAll >> loadMIDI mid >> draw >> loopPaused) prog
+  flip evalStateT prog $ do
+    clearAll
+    liftIO $ putErrLn "Loading MIDI..."
+    loadMIDI mid
+    draw
+    liftIO $ putErrLn "Done!"
+    loopPaused
 
 toggleSource :: Source -> Prog ()
 toggleSource src = liftIO $ do
