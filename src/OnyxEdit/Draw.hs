@@ -47,8 +47,9 @@ timeToX pos = do
   pps <- A.get vResolution
   return $ 150 + floor ((pos - toSeconds now) * fromIntegral pps)
 
-drawLine :: Position -> Line -> Prog ()
-drawLine pos l = void $ do
+-- | Returns the X position that the drawn line was centered at.
+drawLine :: Position -> Line -> Prog Int
+drawLine pos l = do
   x <- timeToX $ toSeconds pos
   scrn <- A.get $ vScreen    . vSurfaces
   surf <- A.get $ vNoteSheet . vSurfaces
@@ -57,40 +58,40 @@ drawLine pos l = void $ do
         Beat    -> Rect 30 0 30 (26 * 5)
         SubBeat -> Rect 60 0 30 (26 * 5)
       drawAt = Just $ Rect (x - 15) 100 0 0
-  liftIO $ blitSurface surf clip scrn drawAt
+  void $ liftIO $ blitSurface surf clip scrn drawAt
+  return x
 
+-- | Returns the X position that the drawn note was centered at.
 drawNote :: Position -> Note -> Prog Int
 drawNote pos note = do
-  surf <- A.get $ vNoteSheet . vSurfaces
-  scrn <- A.get $ vScreen . vSurfaces
   x <- timeToX $ toSeconds pos
+  scrn <- A.get $ vScreen    . vSurfaces
+  surf <- A.get $ vNoteSheet . vSurfaces
   let (clipX, clipY) = noteSprite note
       clip = Just $ Rect clipX clipY 30 (26 * 5)
       drawAt = Just $ Rect (x - 15) 100 0 0
   void $ liftIO $ blitSurface surf clip scrn drawAt
   return x
 
--- | Draws notes until it finds one that is definitely not visible.
-drawVisibleNotes :: [(Position, Note)] -> Prog ()
-drawVisibleNotes [] = return ()
-drawVisibleNotes ((pos, note) : pns) = do
-  x <- drawNote pos note
-  when (-100 < x && x < 1100) $ drawVisibleNotes pns
-
-drawNotes :: Prog ()
-drawNotes = do
-  notes <- A.get $ vDrums    . vTracks
-  now   <- A.get $ vPosition . vTracks
-  case Map.splitLookup now notes of
+drawVisible :: (Position -> a -> Prog Int) -> Map.Map Position (Set.Set a) -> Prog ()
+drawVisible drawFn mp = do
+  now <- A.get $ vPosition . vTracks
+  case Map.splitLookup now mp of
     (lt, eq, gt) -> do
-      drawLess lt
-      maybe (return ()) (mapM_ (drawNote now) . Set.toList) eq
-      drawMore gt
+      go $ expandSets $ Map.toDescList lt
+      maybe (return ()) (mapM_ (drawFn now) . Set.toList) eq
+      go $ expandSets $ Map.toAscList gt
   where
-    drawLess = drawVisibleNotes . expandSets . Map.toDescList
-    drawMore = drawVisibleNotes . expandSets . Map.toAscList
     expandSets :: [(a, Set.Set b)] -> [(a, b)]
     expandSets = concatMap $ \(x, sy) -> map (x,) $ Set.toList sy
+    -- Draws events until it finds one that is not visible.
+    go [] = return ()
+    go ((pos, evt) : xs) = do
+      x <- drawFn pos evt
+      when (-100 < x && x < 1100) $ go xs
+
+drawNotes :: Prog ()
+drawNotes = A.get (vDrums . vTracks) >>= drawVisible drawNote
 
 drawBG :: Prog ()
 drawBG = void $ do
@@ -99,7 +100,8 @@ drawBG = void $ do
   liftIO $ apply 0 0 bg scrn
 
 drawLines :: Prog ()
-drawLines = A.get (vLines . vTracks) >>= mapM_ (uncurry drawLine) . Map.toList
+drawLines = A.get (vLines . vTracks) >>=
+  drawVisible drawLine . fmap Set.singleton
 
 drawStaff :: Prog ()
 drawStaff = do
