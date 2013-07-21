@@ -130,85 +130,90 @@ toggleNearest n = do
     (Nothing, Just (k, _)) -> toggleNote n k
     (Nothing, Nothing) -> return ()
 
--- | The loop for a state that isn't in playing mode. We don't have to draw;
--- just handle the next event.
-loopPaused :: Prog ()
-loopPaused = do
-  liftIO $ delay 1
-  evt <- liftIO pollEvent
-  case evt of
-    Quit -> liftIO $ endContext >> exitSuccess
-    KeyDown (Keysym k mods _) -> let
-      hihat = if KeyModLeftShift `elem` mods then HihatC else HihatO
-      hit   = if KeyModLeftCtrl  `elem` mods then Ghost  else Normal
-      in case k of
-      SDLK_UP -> A.modify vResolution (+ 20) >> draw >> loopPaused
-      SDLK_DOWN -> A.modify vResolution (\r -> max 0 $ r - 20) >> draw >> loopPaused
-      SDLK_LEFT -> modifySpeed (\spd -> max 0.1 $ spd - 0.1) >> loopPaused
-      SDLK_RIGHT -> modifySpeed (\spd -> min 2 $ spd + 0.1) >> loopPaused
-      SDLK_1 -> do
+sharedKeys :: Bool -> Event -> Maybe (Prog ())
+sharedKeys isPlaying evt = case evt of
+  Quit -> Just $ liftIO $ endContext >> exitSuccess
+  KeyDown (Keysym k mods _) -> let
+    hihat  = if KeyModLeftShift `elem` mods then HihatC else HihatO
+    hit    = if KeyModLeftCtrl  `elem` mods then Ghost  else Normal
+    toggle = if isPlaying then toggleNearest else toggleNow
+    in case k of
+      SDLK_UP -> Just $ A.modify vResolution (+ 20)
+      SDLK_DOWN -> Just $ A.modify vResolution $ \r -> max 0 $ r - 20
+      SDLK_LEFT -> Just $ modifySpeed $ \spd -> max 0.1 $ spd - 0.1
+      SDLK_RIGHT -> Just $ modifySpeed $ \spd -> min 2 $ spd + 0.1
+      SDLK_1 -> Just $ do
         (srcDrumL, srcDrumR) <- A.get $ vDrumAudio . vSources
         forM_ [srcDrumL, srcDrumR] toggleSource
-        loopPaused
-      SDLK_BACKQUOTE -> do
+      SDLK_BACKQUOTE -> Just $ do
         (srcSongL, srcSongR) <- A.get $ vSongAudio . vSources
         forM_ [srcSongL, srcSongR] toggleSource
-        loopPaused
-      SDLK_BACKSPACE -> setPosition (Both 0 0) >> draw >> loopPaused
-      SDLK_TAB -> do
-        A.modify vMetronome not
-        loopPaused
-      SDLK_q -> do
+      SDLK_BACKSPACE -> Just $ setPosition $ Both 0 0
+      SDLK_TAB -> Just $ A.modify vMetronome not
+      SDLK_q -> Just $ do
         dvn <- A.get vDivision
         case (numerator dvn, denominator dvn) of
           (1, d) -> do
             A.set vDivision $ 1 % (d + 1)
             makeLines
           _      -> return ()
-        draw
-        loopPaused
-      SDLK_a -> do
+      SDLK_a -> Just $ do
         dvn <- A.get vDivision
         case (numerator dvn, denominator dvn) of
           (1, d) | d >= 2 -> do
             A.set vDivision $ 1 % (d - 1)
             makeLines
           _               -> return ()
-        draw
-        loopPaused
-      SDLK_z     -> toggleNow HihatF              >> draw >> loopPaused
-      SDLK_SPACE -> toggleNow (Kick          hit) >> draw >> loopPaused
-      SDLK_v     -> toggleNow (Snare         hit) >> draw >> loopPaused
-      SDLK_d     -> toggleNow SnareFlam           >> draw >> loopPaused
-      SDLK_b     -> toggleNow (Tom   Yellow  hit) >> draw >> loopPaused
-      SDLK_k     -> toggleNow (Tom   Blue    hit) >> draw >> loopPaused
-      SDLK_m     -> toggleNow (Tom   Green   hit) >> draw >> loopPaused
-      SDLK_c     -> toggleNow (hihat Yellow     ) >> draw >> loopPaused
-      SDLK_t     -> toggleNow (hihat Blue       ) >> draw >> loopPaused
-      SDLK_g     -> toggleNow (hihat Green      ) >> draw >> loopPaused
-      SDLK_j     -> toggleNow (Ride  Yellow     ) >> draw >> loopPaused
-      SDLK_h     -> toggleNow (Ride  Blue       ) >> draw >> loopPaused
-      SDLK_l     -> toggleNow (Ride  Green      ) >> draw >> loopPaused
-      SDLK_n     -> toggleNow (Crash Yellow     ) >> draw >> loopPaused
-      SDLK_e     -> toggleNow (Crash Blue       ) >> draw >> loopPaused
-      SDLK_COMMA -> toggleNow (Crash Green      ) >> draw >> loopPaused
+      SDLK_z     -> Just $ toggle HihatF
+      SDLK_SPACE -> Just $ toggle $ Kick          hit
+      SDLK_v     -> Just $ toggle $ Snare         hit
+      SDLK_d     -> Just $ toggle SnareFlam
+      SDLK_b     -> Just $ toggle $ Tom   Yellow  hit
+      SDLK_k     -> Just $ toggle $ Tom   Blue    hit
+      SDLK_m     -> Just $ toggle $ Tom   Green   hit
+      SDLK_c     -> Just $ toggle $ hihat Yellow
+      SDLK_t     -> Just $ toggle $ hihat Blue
+      SDLK_g     -> Just $ toggle $ hihat Green
+      SDLK_j     -> Just $ toggle $ Ride  Yellow
+      SDLK_h     -> Just $ toggle $ Ride  Blue
+      SDLK_l     -> Just $ toggle $ Ride  Green
+      SDLK_n     -> Just $ toggle $ Crash Yellow
+      SDLK_e     -> Just $ toggle $ Crash Blue
+      SDLK_COMMA -> Just $ toggle $ Crash Green
+      _ -> Nothing
+  MouseButtonDown _ _ btn -> case btn of
+    ButtonWheelDown -> Just $ do
+      pos <- A.get $ vPosition . vTracks
+      lns <- A.get $ vLines    . vTracks
+      if isPlaying
+        then case Map.splitLookup pos lns of
+          (_, _, gt) -> case reverse $ take 2 $ Map.toAscList gt of
+            (k, _) : _ -> setPosition k
+            []         -> return ()
+        else maybe (return ()) (setPosition . fst) $ Map.lookupGT pos lns
+    ButtonWheelUp -> Just $ do
+      pos <- A.get $ vPosition . vTracks
+      lns <- A.get $ vLines    . vTracks
+      if isPlaying
+        then case Map.splitLookup pos lns of
+          (lt, _, _) -> case reverse $ take 3 $ Map.toDescList lt of
+            (k, _) : _ -> setPosition k
+            []         -> return ()
+        else maybe (return ()) (setPosition . fst) $ Map.lookupLT pos lns
+    _ -> Nothing
+  _ -> Nothing
+
+-- | The loop for a state that isn't in playing mode. We don't have to draw;
+-- just handle the next event.
+loopPaused :: Prog ()
+loopPaused = do
+  liftIO $ delay 1
+  evt <- liftIO pollEvent
+  case sharedKeys False evt of
+    Just act -> act >> draw >> loopPaused
+    Nothing  -> case evt of
+      MouseButtonDown _ _ ButtonMiddle -> playAll >> loopPlaying
       _ -> loopPaused
-    MouseButtonDown _ _ btn -> case btn of
-      ButtonWheelDown -> do
-        pos <- A.get $ vPosition . vTracks
-        lns <- A.get $ vLines    . vTracks
-        maybe (return ()) (setPosition . fst) $ Map.lookupGT pos lns
-        draw
-        loopPaused
-      ButtonWheelUp -> do
-        pos <- A.get $ vPosition . vTracks
-        lns <- A.get $ vLines    . vTracks
-        maybe (return ()) (setPosition . fst) $ Map.lookupLT pos lns
-        draw
-        loopPaused
-      ButtonMiddle -> playAll >> loopPlaying
-      _ -> loopPaused
-    _ -> loopPaused
 
 -- | The loop for a state that is playing currently. We must start by updating
 -- our position, and drawing the board.
@@ -218,85 +223,11 @@ loopPlaying = do
   updatePlaying
   draw
   evt <- liftIO pollEvent
-  case evt of
-    Quit -> liftIO $ endContext >> exitSuccess
-    KeyDown (Keysym k mods _) -> let
-      hihat = if KeyModLeftShift `elem` mods then HihatC else HihatO
-      hit   = if KeyModLeftCtrl  `elem` mods then Ghost  else Normal
-      in case k of
-      SDLK_UP -> A.modify vResolution (+ 20) >> draw >> loopPlaying
-      SDLK_DOWN -> A.modify vResolution (\r -> max 0 $ r - 20) >> draw >> loopPlaying
-      SDLK_LEFT -> do
-        whilePaused $ modifySpeed $ \spd -> max 0.1 $ spd - 0.1
-        loopPlaying
-      SDLK_RIGHT -> do
-        whilePaused $ modifySpeed $ \spd -> min 2 $ spd + 0.1
-        loopPlaying
-      SDLK_1 -> do
-        (srcDrumL, srcDrumR) <- A.get $ vDrumAudio . vSources
-        forM_ [srcDrumL, srcDrumR] toggleSource
-        loopPlaying
-      SDLK_BACKQUOTE -> do
-        (srcSongL, srcSongR) <- A.get $ vSongAudio . vSources
-        forM_ [srcSongL, srcSongR] toggleSource
-        loopPlaying
-      SDLK_BACKSPACE -> whilePaused (setPosition $ Both 0 0) >> loopPlaying
-      SDLK_TAB -> do
-        A.modify vMetronome not
-        loopPlaying
-      SDLK_q -> do
-        dvn <- A.get vDivision
-        case (numerator dvn, denominator dvn) of
-          (1, d) -> do
-            A.set vDivision $ 1 % (d + 1)
-            makeLines
-          _      -> return ()
-        loopPlaying
-      SDLK_a -> do
-        dvn <- A.get vDivision
-        case (numerator dvn, denominator dvn) of
-          (1, d) | d >= 2 -> do
-            A.set vDivision $ 1 % (d - 1)
-            makeLines
-          _               -> return ()
-        loopPlaying
-      SDLK_z     -> toggleNearest HihatF              >> draw >> loopPlaying
-      SDLK_SPACE -> toggleNearest (Kick          hit) >> draw >> loopPlaying
-      SDLK_v     -> toggleNearest (Snare         hit) >> draw >> loopPlaying
-      SDLK_d     -> toggleNearest SnareFlam           >> draw >> loopPlaying
-      SDLK_b     -> toggleNearest (Tom   Yellow  hit) >> draw >> loopPlaying
-      SDLK_k     -> toggleNearest (Tom   Blue    hit) >> draw >> loopPlaying
-      SDLK_m     -> toggleNearest (Tom   Green   hit) >> draw >> loopPlaying
-      SDLK_c     -> toggleNearest (hihat Yellow     ) >> draw >> loopPlaying
-      SDLK_t     -> toggleNearest (hihat Blue       ) >> draw >> loopPlaying
-      SDLK_g     -> toggleNearest (hihat Green      ) >> draw >> loopPlaying
-      SDLK_j     -> toggleNearest (Ride  Yellow     ) >> draw >> loopPlaying
-      SDLK_h     -> toggleNearest (Ride  Blue       ) >> draw >> loopPlaying
-      SDLK_l     -> toggleNearest (Ride  Green      ) >> draw >> loopPlaying
-      SDLK_n     -> toggleNearest (Crash Yellow     ) >> draw >> loopPlaying
-      SDLK_e     -> toggleNearest (Crash Blue       ) >> draw >> loopPlaying
-      SDLK_COMMA -> toggleNearest (Crash Green      ) >> draw >> loopPlaying
+  case sharedKeys True evt of
+    Just act -> act >> loopPlaying
+    Nothing  -> case evt of
+      MouseButtonDown _ _ ButtonMiddle -> pauseAll >> loopPaused
       _ -> loopPlaying
-    MouseButtonDown _ _ btn -> case btn of
-      ButtonWheelDown -> do
-        pos <- A.get $ vPosition . vTracks
-        lns <- A.get $ vLines . vTracks
-        case Map.splitLookup pos lns of
-          (_, _, gt) -> case reverse $ take 2 $ Map.toAscList gt of
-            (k, _) : _ -> setPosition k
-            []         -> return ()
-        loopPlaying
-      ButtonWheelUp -> do
-        pos <- A.get $ vPosition . vTracks
-        lns <- A.get $ vLines . vTracks
-        case Map.splitLookup pos lns of
-          (lt, _, _) -> case reverse $ take 3 $ Map.toDescList lt of
-            (k, _) : _ -> setPosition k
-            []         -> return ()
-        loopPlaying
-      ButtonMiddle -> pauseAll >> loopPaused
-      _ -> loopPlaying
-    _ -> loopPlaying
 
 pauseAll, playAll :: Prog ()
 pauseAll = allSources >>= liftIO . pause
