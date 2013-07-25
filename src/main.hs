@@ -241,10 +241,12 @@ getQuantity w = let
   in case filter (null . snd) $ readP_to_S (many lex') w of
     [(lxms, _)] -> case lxms of
       [Number s, Ident "s"] -> Just $ Secs $ numberToRational s
-      [Number b, Ident "b"] -> Just $ Bts $ numberToRational b
-      [Number m, Ident "m", Number b, Ident "b"] ->
+      [Symbol ":", Number b] -> Just $ Bts $ numberToRational b
+      [Number m, Symbol ":", Number b] ->
         flip fmap (numberToInteger m) $ \i ->
           Msr (fromIntegral i) $ numberToRational b
+      [Number m, Symbol ":"] ->
+        flip fmap (numberToInteger m) $ \i -> Msr (fromIntegral i) 0
       [Number bpm, Ident "bpm"] -> Just $ BPM $ numberToRational bpm
       [Number n] -> Just $ Raw $ numberToRational n
       _ -> Nothing
@@ -276,7 +278,17 @@ loopPaused = do
                 setPosition $ Beats b
                 draw
                 loopPaused
-              Just (Msr _ _) -> undefined
+              Just (Msr m b) -> do
+                lns <- A.get $ vLines . vTracks
+                let msrs = filter ((Measure ==) . snd) $ Map.toAscList lns
+                case drop m msrs of
+                  (mpos, _) : _ -> do
+                    setPosition $ Beats $ toBeats mpos + b
+                    draw
+                    loopPaused
+                  [] -> do
+                    liftIO $ putStrLn "Measure number invalid."
+                    loopPaused
               Just (BPM bpm) -> do
                 now <- A.get $ vPosition . vTracks
                 tmps <- A.get $ vTempos . vTracks
