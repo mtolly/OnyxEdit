@@ -23,6 +23,7 @@ data YBG = Yellow | Blue | Green
 type Seconds = Rational
 type Beats   = Rational
 type BPS     = Rational
+type BPM     = Rational
 
 -- | A position expressed in real time and/or musical time. The purpose of this
 -- type is to make a mapping of positions to events, and then look up positions

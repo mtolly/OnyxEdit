@@ -229,7 +229,7 @@ data Quantity
   deriving (Eq, Ord, Show, Read)
 
 getQuantity :: String -> Maybe Quantity
-getQuantity s = undefined
+getQuantity _ = undefined
 
 -- | The loop for a state that isn't in playing mode. We don't have to draw;
 -- just handle the next event.
@@ -241,30 +241,33 @@ loopPaused = do
     Just act -> act >> draw >> loopPaused
     Nothing  -> case evt of
       MouseButtonDown _ _ ButtonMiddle -> playAll >> loopPlaying
-      _ -> hReady stdin >>= \b -> if b
-        then getLine >>= \s -> case words s of
-          ["now"] -> do
-            A.get (vPosition . vTracks) >>= print
-            loopPaused
-          [w] -> case getQuantity w of
-            Just (Secs s) -> do
-              setPosition $ Seconds s
-              draw
+      _ -> liftIO (hReady stdin) >>= \ready -> if ready
+        then liftIO getLine >>= \ln -> let
+          unrec = liftIO (putStrLn "Unrecognized command.") >> loopPaused
+          in case words ln of
+            ["now"] -> do
+              A.get (vPosition . vTracks) >>= liftIO . print
               loopPaused
-            Just (Bts b) -> do
-              setPosition $ Beats b
-              draw
-              loopPaused
-            Just (Msr _ _) -> undefined
-            Just (BPM bpm) -> do
-              now <- A.get $ vPosition . vTracks
-              A.modify (vTempos . vTracks) $ Map.insert now (bpm / 60)
-              draw
-              loopPaused
-            Just (Raw _) -> putStrLn "Number requires a unit." >> loopPaused
+            [w] -> case getQuantity w of
+              Just (Secs s) -> do
+                setPosition $ Seconds s
+                draw
+                loopPaused
+              Just (Bts b) -> do
+                setPosition $ Beats b
+                draw
+                loopPaused
+              Just (Msr _ _) -> undefined
+              Just (BPM bpm) -> do
+                now <- A.get $ vPosition . vTracks
+                A.modify (vTempos . vTracks) $ Map.insert now (bpm / 60)
+                draw
+                loopPaused
+              Just (Raw _) -> do
+                liftIO $ putStrLn "Number requires a unit."
+                loopPaused
+              _ -> unrec
             _ -> unrec
-          _ -> unrec
-          where unrec = putStrLn "Unrecognized command." >> loopPaused
         else loopPaused
 
 -- | The loop for a state that is playing currently. We must start by updating
