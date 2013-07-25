@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Prelude hiding ((.), id)
+import Prelude hiding ((.), id, lex)
 import Control.Category
 
 import Graphics.UI.SDL hiding (flip)
@@ -14,6 +14,9 @@ import qualified Data.Set as Set
 import Data.List (intersect)
 
 import Data.Ratio
+
+import Text.Read.Lex
+import Text.ParserCombinators.ReadP
 
 import qualified Sound.MIDI.File.Load as Load
 
@@ -229,7 +232,23 @@ data Quantity
   deriving (Eq, Ord, Show, Read)
 
 getQuantity :: String -> Maybe Quantity
-getQuantity _ = undefined
+getQuantity w = let
+  lex' = do
+    lxm <- lex
+    case lxm of
+      EOF -> pfail
+      _   -> return lxm
+  in case filter (null . snd) $ readP_to_S (many lex') w of
+    [(lxms, _)] -> case lxms of
+      [Number s, Ident "s"] -> Just $ Secs $ numberToRational s
+      [Number b, Ident "b"] -> Just $ Bts $ numberToRational b
+      [Number m, Ident "m", Number b, Ident "b"] ->
+        flip fmap (numberToInteger m) $ \i ->
+          Msr (fromIntegral i) $ numberToRational b
+      [Number bpm, Ident "bpm"] -> Just $ BPM $ numberToRational bpm
+      [Number n] -> Just $ Raw $ numberToRational n
+      _ -> Nothing
+    _ -> Nothing
 
 -- | The loop for a state that isn't in playing mode. We don't have to draw;
 -- just handle the next event.
@@ -260,7 +279,9 @@ loopPaused = do
               Just (Msr _ _) -> undefined
               Just (BPM bpm) -> do
                 now <- A.get $ vPosition . vTracks
-                A.modify (vTempos . vTracks) $ Map.insert now (bpm / 60)
+                tmps <- A.get $ vTempos . vTracks
+                loadTempos $ Map.mapKeys toBeats $
+                  Map.insert now (bpm / 60) tmps
                 draw
                 loopPaused
               Just (Raw _) -> do

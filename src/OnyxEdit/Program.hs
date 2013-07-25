@@ -200,8 +200,9 @@ setSpeed spd = do
 setPosition :: Position -> Prog ()
 setPosition pos = do
   strt <- A.get $ vAudioStart . vSources
-  let pos' = strt + realToFrac (toSeconds pos)
-  A.set (vPosition . vTracks) pos
+  both <- positionBoth pos
+  let pos' = strt + realToFrac (toSeconds both)
+  A.set (vPosition . vTracks) both
   srcs <- allSources
   liftIO $ forM_ srcs $ \src -> secOffset src $= pos'
 
