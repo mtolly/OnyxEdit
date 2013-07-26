@@ -94,6 +94,7 @@ main = withInit [InitTimer, InitVideo] $ do
         , vPlaySpeed_  = 1
         , vDivision_   = 1/4
         , vMetronome_  = False
+        , vReference_  = undefined
         }
 
   flip evalStateT prog $ do
@@ -160,8 +161,12 @@ sharedKeys isPlaying evt = case evt of
     in case k of
       SDLK_UP -> Just $ A.modify vResolution (+ 20)
       SDLK_DOWN -> Just $ A.modify vResolution $ \r -> max 0 $ r - 20
-      SDLK_LEFT -> Just $ modifySpeed $ \spd -> max 0.1 $ spd - 0.1
-      SDLK_RIGHT -> Just $ modifySpeed $ \spd -> min 2 $ spd + 0.1
+      SDLK_LEFT -> Just $ do
+        setReference
+        modifySpeed $ \spd -> max 0.1 $ spd - 0.1
+      SDLK_RIGHT -> Just $ do
+        setReference
+        modifySpeed $ \spd -> min 2 $ spd + 0.1
       SDLK_1 -> Just $ do
         (srcDrumL, srcDrumR) <- A.get $ vDrumAudio . vSources
         forM_ [srcDrumL, srcDrumR] toggleSource
@@ -211,6 +216,7 @@ sharedKeys isPlaying evt = case evt of
             (k, _) : _ -> setPosition k
             []         -> return ()
         else maybe (return ()) (setPosition . fst) $ Map.lookupGT pos lns
+      setReference
     ButtonWheelUp -> Just $ do
       pos <- A.get $ vPosition . vTracks
       lns <- A.get $ vLines    . vTracks
@@ -220,6 +226,7 @@ sharedKeys isPlaying evt = case evt of
             (k, _) : _ -> setPosition k
             []         -> return ()
         else maybe (return ()) (setPosition . fst) $ Map.lookupLT pos lns
+      setReference
     _ -> Nothing
   _ -> Nothing
 
@@ -261,7 +268,7 @@ loopPaused = do
   case sharedKeys False evt of
     Just act -> act >> draw >> loopPaused
     Nothing  -> case evt of
-      MouseButtonDown _ _ ButtonMiddle -> playAll >> loopPlaying
+      MouseButtonDown _ _ ButtonMiddle -> setReference >> playAll >> loopPlaying
       _ -> liftIO (hReady stdin) >>= \ready -> if ready
         then liftIO getLine >>= \ln -> let
           unrec = liftIO (putStrLn "Unrecognized command.") >> loopPaused
@@ -321,24 +328,23 @@ pauseAll, playAll :: Prog ()
 pauseAll = allSources >>= liftIO . pause
 playAll  = allSources >>= liftIO . play
 
--- | Uses an audio source (or SDL's timer) to bump our position forward.
+setReference :: Prog ()
+setReference = do
+  tks <- liftIO getTicks
+  pos <- A.get $ vPosition . vTracks
+  setPosition pos
+  A.set vReference (tks, toSeconds pos)
+
+-- | Uses SDL's timer to bump our position forward.
 -- Also triggers metronome sounds, if we passed a bar line.
 updatePlaying :: Prog ()
 updatePlaying = do
   posOld <- A.get $ vPosition . vTracks
   lns <- A.get $ vLines . vTracks
-  srcs <- allSources
-  secNew <- case srcs of
-    -- If there is an audio source: get our current position by copying the
-    -- source's position. TODO: make sure the audio hasn't ended?
-    src : _ -> do
-      t <- liftIO $ OpenAL.get $ secOffset src
-      a <- A.get $ vAudioStart . vSources
-      return $ max 0 $ realToFrac $ t - a
-    -- If there is no audio source: TODO: get our current position by finding
-    -- the difference in SDL ticks from the place where we last recorded a
-    -- ticks/position pair.
-    []      -> undefined
+  (refW, refSecs) <- A.get vReference
+  spd <- A.get vPlaySpeed
+  tks <- liftIO getTicks
+  let secNew = refSecs + (fromIntegral (tks - refW) / 1000) * spd
   posNew <- positionBoth $ Seconds secNew
   A.set (vPosition . vTracks) posNew
   met <- A.get vMetronome

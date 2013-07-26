@@ -21,6 +21,8 @@ import Control.Arrow
 import Data.Accessor
 import qualified Data.Accessor.Monad.Trans.State as A
 
+import Data.Word
+
 import OnyxEdit.Types
 
 type Prog = StateT Program IO
@@ -33,6 +35,7 @@ data Program = Program
   , vPlaySpeed_  :: Rational -- ^ 1 = normal speed
   , vDivision_   :: Beats -- ^ Sub-beat lines appear at this interval
   , vMetronome_  :: Bool
+  , vReference_  :: (Word32, Seconds)
   } deriving (Eq, Ord, Show)
 
 vSurfaces   = accessor vSurfaces_   $ \x s -> s { vSurfaces_   = x }
@@ -42,6 +45,7 @@ vResolution = accessor vResolution_ $ \x s -> s { vResolution_ = x }
 vPlaySpeed  = accessor vPlaySpeed_  $ \x s -> s { vPlaySpeed_  = x }
 vDivision   = accessor vDivision_   $ \x s -> s { vDivision_   = x }
 vMetronome  = accessor vMetronome_  $ \x s -> s { vMetronome_  = x }
+vReference  = accessor vReference_  $ \x s -> s { vReference_  = x }
 
 data Tracks = Tracks
   { vPosition_ :: Position
