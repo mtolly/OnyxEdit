@@ -91,7 +91,7 @@ fromRB3Drums mp = evalState (traverse go mp) initialState where
           guard hasKick
           Just $ Kick Normal
         snare = do
-          guard $ hasRed || (hasYellow && discobeat ds)
+          guard $ (hasRed && not (discobeat ds)) || (hasYellow && discobeat ds)
           Just $ Snare Normal
         yellowHH = do
           guard $ or
