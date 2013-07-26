@@ -191,24 +191,13 @@ makeMeasure dvn start (mult, unit) = let
   measure = Map.singleton start Measure
   in measure `Map.union` beats `Map.union` subbeats
 
--- | Sets the play speed, including the speed of all audio sources.
--- To avoid audio sources becoming desynchronized, this should be done paused.
+-- | Sets the play speed. Should be done while paused.
 setSpeed :: Rational -> Prog ()
-setSpeed spd = do
-  A.set vPlaySpeed spd
-  srcs <- allSources
-  liftIO $ forM_ srcs $ \src -> pitch src $= realToFrac spd
+setSpeed = A.set vPlaySpeed
 
--- | Sets the time offset, including the offset of all audio sources.
--- To avoid audio sources becoming desynchronized, this should be done paused.
+-- | Sets the time offset. Should be done while paused.
 setPosition :: Position -> Prog ()
-setPosition pos = do
-  strt <- A.get $ vAudioStart . vSources
-  both <- positionBoth pos
-  let pos' = strt + realToFrac (toSeconds both)
-  A.set (vPosition . vTracks) both
-  srcs <- allSources
-  liftIO $ forM_ srcs $ \src -> secOffset src $= pos'
+setPosition pos = positionBoth pos >>= A.set (vPosition . vTracks)
 
 -- | Sets the end of the track. Also sets the current position if it is beyond
 -- the new end point.
@@ -217,20 +206,9 @@ setEnd end = do
   A.set    (vEnd      . vTracks) end
   A.modify (vPosition . vTracks) $ min end
 
--- | Changes the play speed, including the speed of all audio sources.
--- To avoid audio sources becoming desynchronized, this should be done paused.
+-- | Changes the play speed. Should be done while paused.
 modifySpeed :: (Rational -> Rational) -> Prog ()
 modifySpeed f = A.get vPlaySpeed >>= setSpeed . f
-
-whilePaused :: Prog () -> Prog ()
-whilePaused act = do
-  srcs <- allSources >>= filterM isPlaying
-  liftIO $ pause srcs
-  act
-  liftIO $ play srcs
-  where isPlaying src = do
-          st <- liftIO $ OpenAL.get $ sourceState src
-          return $ st == Playing
 
 loadDrumAudio :: [Source] -> Prog ()
 loadDrumAudio new = do

@@ -164,18 +164,23 @@ sharedKeys isPlaying evt = case evt of
       SDLK_UP -> Just $ A.modify vResolution (+ 20)
       SDLK_DOWN -> Just $ A.modify vResolution $ \r -> max 0 $ r - 20
       SDLK_LEFT -> Just $ do
-        setReference
+        when isPlaying pauseAll
         modifySpeed $ \spd -> max 0.1 $ spd - 0.1
+        when isPlaying playAll
       SDLK_RIGHT -> Just $ do
-        setReference
+        when isPlaying pauseAll
         modifySpeed $ \spd -> min 2 $ spd + 0.1
+        when isPlaying playAll
       SDLK_1 -> Just $ do
         srcs <- A.get $ vDrumAudio . vSources
         forM_ srcs toggleSource
       SDLK_BACKQUOTE -> Just $ do
         srcs <- A.get $ vSongAudio . vSources
         forM_ srcs toggleSource
-      SDLK_BACKSPACE -> Just $ setPosition $ Both 0 0
+      SDLK_BACKSPACE -> Just $ do
+        when isPlaying pauseAll
+        setPosition $ Both 0 0
+        when isPlaying playAll
       SDLK_TAB -> Just $ A.modify vMetronome not
       SDLK_q -> Just $ do
         dvn <- A.get vDivision
@@ -326,9 +331,22 @@ loopPlaying = do
       MouseButtonDown _ _ ButtonMiddle -> pauseAll >> loopPaused
       _ -> loopPlaying
 
-pauseAll, playAll :: Prog ()
+pauseAll :: Prog ()
 pauseAll = allSources >>= liftIO . pause
-playAll  = allSources >>= liftIO . play
+
+-- | Starts all audio sources, applying the current offset and play speed.
+playAll :: Prog ()
+playAll = do
+  srcs <- allSources
+  strt <- A.get $ vAudioStart . vSources
+  pos <- A.get $ vPosition . vTracks
+  spd <- fmap realToFrac $ A.get vPlaySpeed
+  let pos' = strt + realToFrac (toSeconds pos)
+  liftIO $ forM_ srcs $ \src -> do
+    secOffset src $= pos'
+    pitch     src $= spd
+  setReference
+  liftIO $ play srcs
 
 setReference :: Prog ()
 setReference = do
