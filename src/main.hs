@@ -82,8 +82,8 @@ main = withInit [InitTimer, InitVideo] $ do
         }
       sources = Sources
         { vAudioStart_ = startTime
-        , vDrumAudio_  = (srcDrumL, srcDrumR)
-        , vSongAudio_  = (srcSongL, srcSongR)
+        , vDrumAudio_  = []
+        , vSongAudio_  = []
         , vClick_      = srcClick
         }
       prog = Program
@@ -99,6 +99,8 @@ main = withInit [InitTimer, InitVideo] $ do
 
   flip evalStateT prog $ do
     clearAll
+    loadDrumAudio [srcDrumL, srcDrumR]
+    loadSongAudio [srcSongL, srcSongR]
     liftIO $ putErrLn "Loading MIDI..."
     loadMIDI mid
     draw
@@ -168,11 +170,11 @@ sharedKeys isPlaying evt = case evt of
         setReference
         modifySpeed $ \spd -> min 2 $ spd + 0.1
       SDLK_1 -> Just $ do
-        (srcDrumL, srcDrumR) <- A.get $ vDrumAudio . vSources
-        forM_ [srcDrumL, srcDrumR] toggleSource
+        srcs <- A.get $ vDrumAudio . vSources
+        forM_ srcs toggleSource
       SDLK_BACKQUOTE -> Just $ do
-        (srcSongL, srcSongR) <- A.get $ vSongAudio . vSources
-        forM_ [srcSongL, srcSongR] toggleSource
+        srcs <- A.get $ vSongAudio . vSources
+        forM_ srcs toggleSource
       SDLK_BACKSPACE -> Just $ setPosition $ Both 0 0
       SDLK_TAB -> Just $ A.modify vMetronome not
       SDLK_q -> Just $ do

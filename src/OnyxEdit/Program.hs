@@ -94,8 +94,8 @@ vNowLine    = accessor vNowLine_    $ \x s -> s { vNowLine_    = x }
 
 data Sources = Sources
   { vAudioStart_ :: Float
-  , vDrumAudio_  :: (Source, Source)
-  , vSongAudio_  :: (Source, Source)
+  , vDrumAudio_  :: [Source]
+  , vSongAudio_  :: [Source]
   , vClick_      :: Source
   } deriving (Eq, Ord, Show)
 
@@ -108,9 +108,9 @@ vClick      = accessor vClick_      $ \x s -> s { vClick_      = x }
 -- This does not include sound effects such as the metronome.
 allSources :: Prog [Source]
 allSources = do
-  (dl, dr) <- A.get $ vDrumAudio . vSources
-  (sl, sr) <- A.get $ vSongAudio . vSources
-  return [dl, dr, sl, sr]
+  d <- A.get $ vDrumAudio . vSources
+  s <- A.get $ vSongAudio . vSources
+  return $ d ++ s
 
 -- | A collection of empty tracks. The only events are a 120 BPM tempo and a
 -- 4/4 time signature at position zero.
@@ -231,3 +231,15 @@ whilePaused act = do
   where isPlaying src = do
           st <- liftIO $ OpenAL.get $ sourceState src
           return $ st == Playing
+
+loadDrumAudio :: [Source] -> Prog ()
+loadDrumAudio new = do
+  old <- A.get $ vDrumAudio . vSources
+  liftIO $ deleteObjectNames old
+  A.set (vDrumAudio . vSources) new
+
+loadSongAudio :: [Source] -> Prog ()
+loadSongAudio new = do
+  old <- A.get $ vSongAudio . vSources
+  liftIO $ deleteObjectNames old
+  A.set (vSongAudio . vSources) new
