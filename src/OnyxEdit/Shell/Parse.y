@@ -1,6 +1,6 @@
 {
 module OnyxEdit.Shell.Parse
-( T.scan, parse
+( parse, Expr(..)
 ) where
 
 import qualified OnyxEdit.Shell.Scan as T

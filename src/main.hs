@@ -37,6 +37,7 @@ import OnyxEdit.Program
 import OnyxEdit.MIDI
 import OnyxEdit.Draw
 import OnyxEdit.Audio
+import OnyxEdit.Shell ()
 
 loadImage :: String -> IO Surface
 loadImage filename = load filename >>= displayFormatAlpha

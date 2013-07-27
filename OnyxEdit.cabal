@@ -31,6 +31,7 @@ Executable onyxedit
                     OnyxEdit.MIDI
                     OnyxEdit.Draw
                     OnyxEdit.Audio
+                    OnyxEdit.Shell
                     OnyxEdit.Shell.Scan
                     OnyxEdit.Shell.Parse
   Ghc-Options:      -Wall
