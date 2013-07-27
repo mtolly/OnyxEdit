@@ -12,6 +12,7 @@ Data-Files:         gems.png, bg.png, staff.png, now.png
 
 Executable onyxedit
   Build-Depends:    base >= 4 && <= 5
+                    , array
                     , transformers
                     , containers
                     , OpenAL
@@ -30,4 +31,5 @@ Executable onyxedit
                     OnyxEdit.MIDI
                     OnyxEdit.Draw
                     OnyxEdit.Audio
+                    OnyxEdit.Shell.Scan
   Ghc-Options:      -Wall
