@@ -39,6 +39,7 @@ eval e = case e of
       pos <- A.get $ vPosition . vTracks
       return $ Val (toSeconds pos) 1 0
     Val r s b -> return $ Val r (s + 1) b
+  P.Msrs _ -> error "eval: TODO support measures"
   P.Bts x -> eval x >>= \v -> case v of
     Now -> do
       pos <- A.get $ vPosition . vTracks
@@ -53,7 +54,7 @@ eval e = case e of
       (Now, Val r 0 1) -> modBeats (+ r)
       (Val r 0 1, Now) -> modBeats (+ r)
       (Val r a b, Val s c d) | a == c && b == d -> return $ Val (r + s) a b
-      _ -> error "Unsupported addition"
+      _ -> error "eval: unsupported addition"
   P.Sub x y -> do
     u <- eval x
     v <- eval y
@@ -63,5 +64,16 @@ eval e = case e of
       (Now, Val r 0 1) -> modBeats $ subtract r
       (Val r 0 1, Now) -> modBeats (r -)
       (Val r a b, Val s c d) | a == c && b == d -> return $ Val (r - s) a b
-      _ -> error "Unsupported subtraction"
-  _ -> undefined
+      _ -> error "eval: unsupported subtraction"
+  P.Mult x y -> do
+    u <- eval x
+    v <- eval y
+    case (u, v) of
+      (Val r a b, Val s c d) -> return $ Val (r * s) (a + c) (b + d)
+      _ -> error "eval: unsupported multiplication"
+  P.Div x y -> do
+    u <- eval x
+    v <- eval y
+    case (u, v) of
+      (Val r a b, Val s c d) -> return $ Val (r / s) (a - c) (b - d)
+      _ -> error "eval: unsupported multiplication"
