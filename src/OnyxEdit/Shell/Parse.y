@@ -15,6 +15,7 @@ import qualified OnyxEdit.Shell.Scan as T
   ':' { T.Colon }
   s { T.Secs }
   m { T.Mins }
+  b { T.Bts }
   bpm { T.BPM }
   bps { T.BPS }
   '(' { T.LParen }
@@ -38,6 +39,7 @@ Expr0 : Expr0 '+' Expr1 { $1 + $3 }
 Expr1 : Expr2 s         { Secs $1 }
       | Expr2 m         { Secs ($1 * 60) }
       | Expr2 m Expr2 s { Secs (($1 * 60) + $3) }
+      | Expr2 b         { Bts $1 }
       | Expr2 bps       { Bts $1 / Secs 1 }
       | Expr2 bpm       { Bts $1 / Secs 60 }
       | ':' Expr2       { Bts $2 }
@@ -47,6 +49,11 @@ Expr1 : Expr2 s         { Secs $1 }
 
 Expr2 : num { Num $1 }
       | now { Now }
+      | s { Secs 1 }
+      | m { Secs 60 }
+      | b { Bts 1 }
+      | bps { Bts 1 / Secs 1 }
+      | bpm { Bts 1 / Secs 60 }
       | '(' Expr ')' { $2 }
 
 {

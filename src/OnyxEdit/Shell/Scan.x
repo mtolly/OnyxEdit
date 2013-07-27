@@ -18,6 +18,7 @@ $white+ ;
 \: { const Colon }
 [Ss] { const Secs }
 [Mm] { const Mins }
+[Bb] { const Bts }
 [Bb][Pp][Mm] { const BPM }
 [Bb][Pp][Ss] { const BPS }
 \( { const LParen }
@@ -35,6 +36,7 @@ data Token
   | Colon
   | Secs
   | Mins
+  | Bts
   | BPM
   | BPS
   | LParen

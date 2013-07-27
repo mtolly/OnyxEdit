@@ -19,6 +19,7 @@ Library
 
 Executable onyxedit
   Build-Depends:    base >= 4 && <= 5
+                    , OnyxEdit
                     , array
                     , transformers
                     , containers
@@ -39,6 +40,4 @@ Executable onyxedit
                     OnyxEdit.Draw
                     OnyxEdit.Audio
                     OnyxEdit.Shell
-                    OnyxEdit.Shell.Scan
-                    OnyxEdit.Shell.Parse
   Ghc-Options:      -Wall
