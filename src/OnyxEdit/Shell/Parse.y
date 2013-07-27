@@ -27,12 +27,12 @@ import qualified OnyxEdit.Shell.Scan as T
 
 %%
 
-Expr : Expr0 '*' Expr { $1 * $3 }
-     | Expr0 '/' Expr { $1 / $3 }
+Expr : Expr '*' Expr0 { $1 * $3 }
+     | Expr '/' Expr0 { $1 / $3 }
      | Expr0 { $1 }
 
-Expr0 : Expr1 '+' Expr0 { $1 + $3 }
-      | Expr1 '-' Expr0 { $1 - $3 }
+Expr0 : Expr0 '+' Expr1 { $1 + $3 }
+      | Expr0 '-' Expr1 { $1 - $3 }
       | Expr1 { $1 }
 
 Expr1 : Expr2 s         { Secs $1 }
@@ -43,6 +43,7 @@ Expr1 : Expr2 s         { Secs $1 }
       | ':' Expr2       { Bts $2 }
       | Expr2 ':'       { Msrs $1 }
       | Expr2 ':' Expr2 { Msrs $1 + Bts $3 }
+      | Expr2           { $1 }
 
 Expr2 : num { Num $1 }
       | now { Now }
