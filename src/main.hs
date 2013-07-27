@@ -15,9 +15,6 @@ import Data.List (intersect)
 
 import Data.Ratio
 
-import Text.Read.Lex
-import Text.ParserCombinators.ReadP
-
 import qualified Sound.MIDI.File.Load as Load
 
 import Control.Monad
@@ -37,7 +34,7 @@ import OnyxEdit.Program
 import OnyxEdit.MIDI
 import OnyxEdit.Draw
 import OnyxEdit.Audio
-import OnyxEdit.Shell ()
+import OnyxEdit.Shell
 
 loadImage :: String -> IO Surface
 loadImage filename = load filename >>= displayFormatAlpha
@@ -244,35 +241,6 @@ sharedKeys isPlaying evt = case evt of
     _ -> Nothing
   _ -> Nothing
 
-data Quantity
-  = Raw Rational
-  | Secs Seconds
-  | Bts Beats
-  | Msr Int Beats
-  | BPM BPM
-  deriving (Eq, Ord, Show, Read)
-
-getQuantity :: String -> Maybe Quantity
-getQuantity w = let
-  lex' = do
-    lxm <- lex
-    case lxm of
-      EOF -> pfail
-      _   -> return lxm
-  in case filter (null . snd) $ readP_to_S (many lex') w of
-    [(lxms, _)] -> case lxms of
-      [Number s, Ident "s"] -> Just $ Secs $ numberToRational s
-      [Symbol ":", Number b] -> Just $ Bts $ numberToRational b
-      [Number m, Symbol ":", Number b] ->
-        flip fmap (numberToInteger m) $ \i ->
-          Msr (fromIntegral i) $ numberToRational b
-      [Number m, Symbol ":"] ->
-        flip fmap (numberToInteger m) $ \i -> Msr (fromIntegral i) 0
-      [Number bpm, Ident "bpm"] -> Just $ BPM $ numberToRational bpm
-      [Number n] -> Just $ Raw $ numberToRational n
-      _ -> Nothing
-    _ -> Nothing
-
 -- | The loop for a state that isn't in playing mode. We don't have to draw;
 -- just handle the next event.
 loopPaused :: Prog ()
@@ -284,44 +252,29 @@ loopPaused = do
     Nothing  -> case evt of
       MouseButtonDown _ _ ButtonMiddle -> setReference >> playAll >> loopPlaying
       _ -> liftIO (hReady stdin) >>= \ready -> if ready
-        then liftIO getLine >>= \ln -> let
-          unrec = liftIO (putStrLn "Unrecognized command.") >> loopPaused
-          in case words ln of
-            ["now"] -> do
-              A.get (vPosition . vTracks) >>= liftIO . print
-              loopPaused
-            [w] -> case getQuantity w of
-              Just (Secs s) -> do
-                setPosition $ Seconds s
-                draw
-                loopPaused
-              Just (Bts b) -> do
-                setPosition $ Beats b
-                draw
-                loopPaused
-              Just (Msr m b) -> do
-                lns <- A.get $ vLines . vTracks
-                let msrs = filter ((Measure ==) . snd) $ Map.toAscList lns
-                case drop m msrs of
-                  (mpos, _) : _ -> do
-                    setPosition $ Beats $ toBeats mpos + b
-                    draw
-                    loopPaused
-                  [] -> do
-                    liftIO $ putStrLn "Measure number invalid."
-                    loopPaused
-              Just (BPM bpm) -> do
-                now <- A.get $ vPosition . vTracks
-                tmps <- A.get $ vTempos . vTracks
-                loadTempos $ Map.mapKeys toBeats $
-                  Map.insert now (bpm / 60) tmps
-                draw
-                loopPaused
-              Just (Raw _) -> do
-                liftIO $ putStrLn "Number requires a unit."
-                loopPaused
-              _ -> unrec
-            _ -> unrec
+        then liftIO getLine >>= eval . interpret >>= \v -> case v of
+          Val bps (-1) 1 -> do
+            now <- A.get $ vPosition . vTracks
+            tmps <- A.get $ vTempos . vTracks
+            loadTempos $ Map.mapKeys toBeats $
+              Map.insert now bps tmps
+            draw
+            loopPaused
+          Val b 0 1 -> do
+            setPosition $ Beats b
+            draw
+            loopPaused
+          Val s 1 0 -> do
+            setPosition $ Seconds s
+            draw
+            loopPaused
+          ValBoth s b -> do
+            setPosition $ Both s b
+            draw
+            loopPaused
+          _ -> do
+            liftIO $ putStrLn "Unrecognized command."
+            loopPaused
         else loopPaused
 
 -- | The loop for a state that is playing currently. We must start by updating
