@@ -1,6 +1,6 @@
 {
 {-# OPTIONS_GHC -w #-}
-module OnyxEdit.Shell.Scan (scan) where
+module OnyxEdit.Shell.Scan (scan, Token(..), Number(..)) where
 
 import Data.Char (isDigit)
 }
@@ -15,24 +15,23 @@ tokens :-
 
 $white+ ;
 
-now { const LitNow }
+now { const $ Number Now }
 
-@decimal { LitNumber . dec }
-@decimal [Ss] { LitSeconds . dec }
-@decimal [Mm] { LitSeconds . (* 60) . dec }
+@decimal { Number . Raw . dec }
+@decimal [Ss] { Number . Seconds . dec }
+@decimal [Mm] { Number . Seconds . (* 60) . dec }
 @decimal [Mm] @decimal [Ss] { \s ->
   let (a, b) = break (`elem` "Mm") s
-    in LitSeconds $ (60 * dec a) + dec (tail b)
+    in Number $ Seconds $ (60 * dec a) + dec (tail b)
   }
-\: @decimal { LitMeasureBeats 0 . dec . tail }
-@decimal \: { \s -> LitMeasureBeats (dec s) 0 }
+\: @decimal { Number . MeasureBeats 0 . dec . tail }
+@decimal \: { \s -> Number $ MeasureBeats (dec s) 0 }
 @decimal \: @decimal { \s ->
   let (a, b) = break (== ':') s
-    in LitMeasureBeats (dec a) (dec $ tail b)
+    in Number $ MeasureBeats (dec a) (dec $ tail b)
   }
-@decimal [Bb][Pp][Mm] { LitBPS . (/ 60) . dec }
-@decimal [Bb][Pp][Ss] { LitBPS . dec }
-@decimal [Bb][Pp][Ss] { LitBPS . dec }
+@decimal [Bb][Pp][Mm] { Number . BPS . (/ 60) . dec }
+@decimal [Bb][Pp][Ss] { Number . BPS . dec }
 
 \( { const LParen }
 \) { const RParen }
@@ -44,17 +43,21 @@ now { const LitNow }
 {
 
 data Token
-  = LitNow
-  | LitNumber Rational
-  | LitSeconds Rational
-  | LitMeasureBeats Rational Rational
-  | LitBPS Rational
+  = Number Number
   | LParen
   | RParen
   | Plus
   | Minus
   | Star
   | Slash
+  deriving (Eq, Ord, Show, Read)
+
+data Number
+  = Now
+  | Raw Rational
+  | Seconds Rational
+  | MeasureBeats Rational Rational
+  | BPS Rational
   deriving (Eq, Ord, Show, Read)
 
 scan :: String -> [Token]
