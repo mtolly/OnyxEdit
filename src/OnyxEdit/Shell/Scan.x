@@ -1,6 +1,6 @@
 {
 {-# OPTIONS_GHC -w #-}
-module OnyxEdit.Shell.Scan (scan, Token(..), Number(..)) where
+module OnyxEdit.Shell.Scan (scan, Token(..)) where
 
 import Data.Char (isDigit)
 }
@@ -8,56 +8,42 @@ import Data.Char (isDigit)
 %wrapper "basic"
 
 $digit = 0-9
-@integer = $digit+
 @decimal = $digit+ ( \. $digit+ )?
 
 tokens :-
 
 $white+ ;
 
-now { const $ Number Now }
-
-@decimal { Number . Raw . dec }
-@decimal [Ss] { Number . Seconds . dec }
-@decimal [Mm] { Number . Seconds . (* 60) . dec }
-@decimal [Mm] @decimal [Ss] { \s ->
-  let (a, b) = break (`elem` "Mm") s
-    in Number $ Seconds $ (60 * dec a) + dec (tail b)
-  }
-\: @decimal { Number . MeasureBeats 0 . dec . tail }
-@decimal \: { \s -> Number $ MeasureBeats (dec s) 0 }
-@decimal \: @decimal { \s ->
-  let (a, b) = break (== ':') s
-    in Number $ MeasureBeats (dec a) (dec $ tail b)
-  }
-@decimal [Bb][Pp][Mm] { Number . BPS . (/ 60) . dec }
-@decimal [Bb][Pp][Ss] { Number . BPS . dec }
-
+@decimal { Num . dec }
+\: { const Colon }
+[Ss] { const Secs }
+[Mm] { const Mins }
+[Bb][Pp][Mm] { const BPM }
+[Bb][Pp][Ss] { const BPS }
 \( { const LParen }
 \) { const RParen }
 \+ { const Plus }
 \- { const Minus }
 \* { const Star }
 \/ { const Slash }
+[Nn][Oo][Ww] { const Now }
 
 {
 
 data Token
-  = Number Number
+  = Num Rational
+  | Colon
+  | Secs
+  | Mins
+  | BPM
+  | BPS
   | LParen
   | RParen
   | Plus
   | Minus
   | Star
   | Slash
-  deriving (Eq, Ord, Show, Read)
-
-data Number
-  = Now
-  | Raw Rational
-  | Seconds Rational
-  | MeasureBeats Rational Rational
-  | BPS Rational
+  | Now
   deriving (Eq, Ord, Show, Read)
 
 scan :: String -> [Token]
