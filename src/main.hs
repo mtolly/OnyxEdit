@@ -218,20 +218,26 @@ sharedKeys isPlaying evt = case evt of
       pos <- A.get $ vPosition . vTracks
       lns <- A.get $ vLines    . vTracks
       if isPlaying
-        then case Map.splitLookup pos lns of
-          (_, _, gt) -> case reverse $ take 2 $ Map.toAscList gt of
-            (k, _) : _ -> setPosition k
-            []         -> return ()
+        then do
+          pauseAll
+          case Map.splitLookup pos lns of
+            (_, _, gt) -> case reverse $ take 2 $ Map.toAscList gt of
+              (k, _) : _ -> setPosition k
+              []         -> return ()
+          playAll
         else maybe (return ()) (setPosition . fst) $ Map.lookupGT pos lns
       setReference
     ButtonWheelUp -> Just $ do
       pos <- A.get $ vPosition . vTracks
       lns <- A.get $ vLines    . vTracks
       if isPlaying
-        then case Map.splitLookup pos lns of
-          (lt, _, _) -> case reverse $ take 3 $ Map.toDescList lt of
-            (k, _) : _ -> setPosition k
-            []         -> return ()
+        then do
+          pauseAll
+          case Map.splitLookup pos lns of
+            (lt, _, _) -> case reverse $ take 3 $ Map.toDescList lt of
+              (k, _) : _ -> setPosition k
+              []         -> return ()
+          playAll
         else maybe (return ()) (setPosition . fst) $ Map.lookupLT pos lns
       setReference
     _ -> Nothing

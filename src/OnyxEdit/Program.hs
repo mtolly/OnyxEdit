@@ -8,7 +8,7 @@ import Control.Category
 import Graphics.UI.SDL hiding (flip)
 
 import Sound.OpenAL hiding (get)
-import qualified Sound.OpenAL as OpenAL
+--import qualified Sound.OpenAL as OpenAL
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
