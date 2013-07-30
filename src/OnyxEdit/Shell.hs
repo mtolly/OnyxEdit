@@ -76,6 +76,14 @@ eval e = case e of
       (Val r 1 0, ValBoth s _) -> return $ Val (r - s) 1 0
       (Val r 0 1, ValBoth _ b) -> return $ Val (r - b) 1 0
       (Val r a b, Val s c d) | a == c && b == d -> return $ Val (r - s) a b
+      (Val s 1 0, Val b 0 1) -> do
+        pos0 <- positionBoth $ Seconds s
+        pos1 <- positionBoth $ Beats $ toBeats pos0 - b
+        return $ ValBoth (toSeconds pos1) (toBeats pos1)
+      (Val b 0 1, Val s 1 0) -> do
+        pos0 <- positionBoth $ Beats b
+        pos1 <- positionBoth $ Seconds $ toSeconds pos0 - s
+        return $ ValBoth (toSeconds pos1) (toBeats pos1)
       _ -> error "eval: unsupported subtraction"
   P.Mult x y -> do
     u <- eval x
