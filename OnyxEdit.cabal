@@ -31,8 +31,8 @@ Executable onyxedit
                     , non-negative
                     , data-accessor
                     , data-accessor-transformers
-  Main-Is:          main.hs
   Hs-Source-Dirs:   src
+
   Other-Modules:    Paths_OnyxEdit
                     OnyxEdit.Types
                     OnyxEdit.Program
@@ -40,4 +40,20 @@ Executable onyxedit
                     OnyxEdit.Draw
                     OnyxEdit.Audio
                     OnyxEdit.Shell
-  Ghc-Options:      -Wall
+  if os(darwin)
+    Other-Modules:  Main
+
+  if os(darwin)
+    Main-Is:        HSMain.hs
+  else
+    Main-Is:        Main.hs
+
+  if os(darwin)
+    GHC-Options:    -no-hs-main -Wall
+  else
+    GHC-Options:    -Wall
+
+  if os(darwin)
+    C-Sources:        src/main.c
+    Extra-Libraries:  SDLmain
+    Includes:         src/HSMain_stub.h
