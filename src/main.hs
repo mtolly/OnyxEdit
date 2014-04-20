@@ -303,7 +303,9 @@ playAll = do
   spd <- fmap realToFrac $ A.get vPlaySpeed
   let pos' = strt + realToFrac (toSeconds pos)
   liftIO $ forM_ srcs $ \src -> do
-    secOffset src $= pos'
+    secOffset src $= realToFrac pos'
+    -- in OpenAL pkg 1.4, above is Float. in 1.5, it's CFloat.
+    -- realToFrac works with either.
     pitch     src $= spd
   setReference
   liftIO $ play srcs

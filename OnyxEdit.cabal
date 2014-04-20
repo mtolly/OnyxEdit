@@ -23,7 +23,7 @@ Executable onyxedit
                     , array
                     , transformers
                     , containers
-                    , OpenAL
+                    , OpenAL >= 1.4.0.2 && < 1.7
                     , SDL-image
                     , SDL
                     , midi
